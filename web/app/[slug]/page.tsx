@@ -13,6 +13,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
 
+// Socket.io 和 GraphQL 相关
+import { getSocket, joinRoom, sendMessage, closeSocket } from "@/lib/socket"
+import { ChatSidebar } from "@/components/chat-sidebar"
+
 export interface Message {
   id: string
   content: string
@@ -22,127 +26,234 @@ export interface Message {
   }
   timestamp: string
   isCurrentUser?: boolean
+  readBy?: string[]
 }
 
+// 聊天室信息
+const ROOM_INFO = {
+  'share-your-story': { name: 'Share Your Story' },
+  'general': { name: 'General' },
+  'design-product': { name: 'Design product' },
+  'product-team': { name: 'Product team' },
+  'announcements': { name: 'Announcements' }
+}
 
 export default function CommunityPage() {
   const { slug } = useParams()
-  console.log("CommunityPage", slug)
+  const userName = Array.isArray(slug) ? slug[0] : slug as string
+  const [currentRoomId, setCurrentRoomId] = useState<string>('share-your-story')
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  
+  // 每个房间的消息
+  const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
+  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content:
-        "If you want to learn from community builders & spur ideas from how others run virtual events, check out Vanilla Forums (11/17 - 11/18/20) for free.",
-      sender: {
-        name: "Jenny White",
-        avatar:
-          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Clipboard_Screenshot_1744361480-BhoNk3LvIgTMpUJRp8irDYt8K1CR22.png",
-      },
-      timestamp: "20:34",
-    },
-    {
-      id: "2",
-      content: "Check out Vanilla Forums (11/17 - 11/18/20) for free.",
-      sender: {
-        name: "Devon Lane",
-        avatar:
-          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Clipboard_Screenshot_1744361480-BhoNk3LvIgTMpUJRp8irDYt8K1CR22.png",
-      },
-      timestamp: "20:34",
-    },
-    {
-      id: "3",
-      content: "Many thanks!",
-      sender: {
-        name: slug as string,
-      },
-      timestamp: "20:35",
-      isCurrentUser: true,
-    },
-  ])
+  // 当前房间的消息
+  const messages = roomMessages[currentRoomId] || []
 
+  // 切换房间
+  const handleRoomChange = (roomId: string) => {
+    setCurrentRoomId(roomId)
+    joinRoom(roomId)
+    setQuotedMessage(null)
+  }
+
+  // 连接 Socket.io
+  useEffect(() => {
+    const socket = getSocket(userName)
+    
+    // 加入默认房间
+    joinRoom(currentRoomId)
+    
+    // 监听历史消息
+    socket.on('history_messages', (historyMessages: any[]) => {
+      const formattedMessages = historyMessages.map(msg => ({
+        ...msg,
+        isCurrentUser: msg.sender.name === userName
+      }))
+      
+      setRoomMessages(prev => ({
+        ...prev,
+        [currentRoomId]: formattedMessages
+      }))
+    })
+    
+    // 监听新消息
+    socket.on('receive_message', (message: any) => {
+      // 确保消息属于当前正在监听的某个房间
+      if (message.roomId) {
+        setRoomMessages(prev => ({
+          ...prev,
+          [message.roomId]: [
+            ...(prev[message.roomId] || []),
+            {
+              ...message,
+              isCurrentUser: message.sender.name === userName
+            }
+          ]
+        }))
+      }
+    })
+    
+    // 清理函数
+    return () => {
+      socket.off('history_messages')
+      socket.off('receive_message')
+      closeSocket()
+    }
+  }, [userName])
+
+  // 发送消息
   const handleSendMessage = (content: string) => {
     if (!content.trim()) return
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    const messageData = {
+      roomId: currentRoomId,
       content,
       sender: {
-        name: slug as string,
-      },
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      isCurrentUser: true,
-    }
-
-    setMessages([...messages, newMessage])
-  }
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        name: userName,
       }
     }
-  }, [messages]); 
-  
+    
+    // 发送到服务器
+    sendMessage(messageData)
+    
+    // 清除引用消息
+    setQuotedMessage(null)
+  }
+
+  // 引用消息
+  const handleQuoteMessage = (message: Message) => {
+    setQuotedMessage(message)
+  }
+
+  // 滚动到底部
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
+      }
+    }
+  }, [messages])
 
   return (
-    <div className="bg-zinc-950 h-full w-full text-white overflow-hidden">
-      <div className="flex flex-col h-full flex-1 overflow-hidden">
-        <div className="flex flex-1 overflow-hidden h-full">
-          <div className="w-full md:w-[550px] border-r border-zinc-800 overflow-y-auto pb-16 md:pb-0">
-            <div className="p-4 border-b border-zinc-800">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-zinc-400" />
-                <Input placeholder="Search" className="pl-8 bg-zinc-900 border-zinc-800 text-white" />
-              </div>
-            </div>
-            <ChatMessages />
+    <div className="bg-zinc-950 h-screen w-full text-white overflow-hidden">
+      <div className="flex h-full">
+        {/* 侧边栏 - 传递房间选择函数而不是使用Link */}
+        <div className="w-[240px] border-r border-zinc-800 overflow-y-auto">
+          <div className="p-4 border-b border-zinc-800">
+            <h1 className="font-semibold">Gradual Community</h1>
+            <p className="text-sm text-zinc-400">欢迎, {userName}</p>
           </div>
           
-          <div className="flex-1 flex flex-col h-full hidden md:flex w-full">
-            <div className="p-4 overflow-y-auto flex-1">
-              <div className="flex h-[3rem] justify-between items-center ">
-                <h2 className="text-xl font-semibold">Share Your Story</h2>
-                <Button variant="outline" className="gap-2">
-                  <span className="flex items-center justify-center h-5 w-5 bg-zinc-700 rounded-full text-xs">4</span>
-                  <span>4</span>
-                </Button>
+          {/* 聊天室列表 */}
+          <div className="px-3 py-2 text-xs text-zinc-500 uppercase">
+            ENGAGE
+          </div>
+          
+          <div className="space-y-1 px-1">
+            {Object.entries(ROOM_INFO).map(([roomId, room]) => (
+              <button 
+                key={roomId}
+                onClick={() => handleRoomChange(roomId)}
+                className={`flex items-center px-2 py-2 rounded-md mx-2 w-full text-left ${
+                  currentRoomId === roomId 
+                    ? "bg-zinc-800" 
+                    : "hover:bg-zinc-800/50"
+                }`}
+              >
+                <div className="w-6 h-6 flex items-center justify-center mr-2 text-lg">
+                  {roomId === 'share-your-story' ? '📝' : 
+                   roomId === 'general' ? '💬' : 
+                   roomId === 'design-product' ? '🎨' : 
+                   roomId === 'product-team' ? '👥' : '📢'}
+                </div>
+                <span className="text-sm">{room.name}</span>
+                {roomId === 'announcements' && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-xs">
+                    3
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* 人员分类 */}
+          <div className="px-3 py-2 text-xs text-zinc-500 uppercase mt-4">
+            PEOPLE
+          </div>
+          
+          {/* 人员列表 */}
+          <div className="space-y-1 px-1">
+            <button className="flex items-center px-2 py-2 rounded-md mx-2 w-full text-left hover:bg-zinc-800/50">
+              <div className="w-6 h-6 flex items-center justify-center mr-2 text-lg">
+                👤
               </div>
-              <div>
-                <ScrollArea className={`px-4 py-6 h-[calc(100vh-15rem)]`} ref={scrollAreaRef}>
-                  <div className="space-y-4">
-                    <ChatMessageList>
-                      {messages.map((message) => (
-                        <ChatBubble key={message.id} variant={message.isCurrentUser ? 'sent' : 'received'} >
-                          <ChatBubbleAvatar fallback={message.sender.name[0]} />
-                          <ChatBubbleMessage variant={message.isCurrentUser ? 'sent' : 'received'} className={`${message.isCurrentUser ? "bg-emerald-600 text-white ml-auto" : ""}`}>
-                            {message.content}
-                          </ChatBubbleMessage>
-                          <ChatBubbleActionWrapper>
-                          <ChatBubbleAction
-                            className="size-6 bg-zinc-950 hover:bg-zinc-950 hover:text-zinc-400"
-                            icon={<Quote className="h-5 w-5" />}
-                            onClick={() => console.log('Action ')}
-                          />
-                      </ChatBubbleActionWrapper>
-                        </ChatBubble>
-                       
-                      ))}
-                    </ChatMessageList>
-                  </div>
-                </ScrollArea>
+              <span className="text-sm">Members</span>
+            </button>
+            <button className="flex items-center px-2 py-2 rounded-md mx-2 w-full text-left hover:bg-zinc-800/50">
+              <div className="w-6 h-6 flex items-center justify-center mr-2 text-lg">
+                👥
               </div>
-            </div>
-            <MessageInput onSendMessage={handleSendMessage} />
+              <span className="text-sm">Contributors</span>
+            </button>
           </div>
         </div>
-      </div>
-      <div className="fixed bottom-0 left-0 right-0 md:hidden p-4 border-t border-zinc-800 bg-zinc-950 z-10">
-        <MessageInput onSendMessage={handleSendMessage} isMobile />
+        
+        {/* 主聊天区域 */}
+        <div className="flex-1 flex flex-col">
+          {/* 顶部标题 */}
+          <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
+            <h2 className="text-xl font-semibold">
+              {ROOM_INFO[currentRoomId as keyof typeof ROOM_INFO]?.name || currentRoomId}
+            </h2>
+            <Button variant="outline" className="gap-2">
+              <span className="flex items-center justify-center h-5 w-5 bg-zinc-700 rounded-full text-xs">4</span>
+              <span>4</span>
+            </Button>
+          </div>
+          
+          {/* 消息区域 */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-132px)]" ref={scrollAreaRef}>
+              <div className="p-4">
+                <ChatMessageList>
+                  {messages.map((message) => (
+                    <ChatBubble 
+                      key={message.id} 
+                      variant={message.isCurrentUser ? 'sent' : 'received'}
+                    >
+                      <ChatBubbleAvatar fallback={message.sender.name[0]} />
+                      <ChatBubbleMessage 
+                        variant={message.isCurrentUser ? 'sent' : 'received'} 
+                        className={`${message.isCurrentUser ? "bg-emerald-600 text-white ml-auto" : ""}`}
+                      >
+                        {message.content}
+                      </ChatBubbleMessage>
+                      <ChatBubbleActionWrapper>
+                        <ChatBubbleAction
+                          className="size-6 bg-zinc-950 hover:bg-zinc-950 hover:text-zinc-400"
+                          icon={<Quote className="h-5 w-5" />}
+                          onClick={() => handleQuoteMessage(message)}
+                        />
+                      </ChatBubbleActionWrapper>
+                    </ChatBubble>
+                  ))}
+                </ChatMessageList>
+              </div>
+            </ScrollArea>
+          </div>
+          
+          {/* 消息输入区域 */}
+          <div className="p-4 border-t border-zinc-800">
+            <MessageInput 
+              onSendMessage={handleSendMessage} 
+              quotedMessage={quotedMessage}
+              onCancelQuote={() => setQuotedMessage(null)}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

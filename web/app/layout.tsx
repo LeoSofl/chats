@@ -7,6 +7,7 @@ import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sidebar } from '@/components/sidebar'
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'Gradual',
@@ -50,7 +51,9 @@ export default function RootLayout({
           </header>
           <div className="flex flex-row h-full w-full">
           <Sidebar />
-          {children}
+          <Providers>
+            {children}
+          </Providers>
           </div>
         </body>
     </html>

@@ -30,7 +30,7 @@ export function MessageInput({ onSendMessage, isMobile = false }: MessageInputPr
   }
 
   return (
-    <div className={`${isMobile ? "" : "p-4 border-t border-zinc-800"}`}>
+    <div className={`${isMobile ? "" : "p-4 border-t border-zinc-800"} h-[5rem]`}>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800">
           <Paperclip className="h-5 w-5" />

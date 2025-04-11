@@ -1,4 +1,3 @@
 packages:
-  - 'web/*'
-  - 'server/*'
-  # exclude packages that are inside test directories
+  - 'web'
+  - 'server'

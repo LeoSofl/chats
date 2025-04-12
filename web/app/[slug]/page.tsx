@@ -1,8 +1,8 @@
 "use client"
 
 import { ReactNode, useEffect, useRef, useState } from "react"
-import { Quote } from "lucide-react"
-import { useAtom, useAtomValue } from 'jotai'
+import { Quote, User } from "lucide-react"
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Button } from "@/components/ui/button"
 import { MessageInput } from "@/components/message-input"
 import { useParams } from "next/navigation"
@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
 import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, Message } from "@/lib/socket"
-import { currentRoomIdAtom, mentionedRoomsAtom, RoomMessagesAtom } from "@/lib/store/chat"
+import { currentRoomIdAtom, deleteMentionedRoomAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "./components/RoomList"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
@@ -18,13 +18,12 @@ import { useRoomParticipants } from "@/hooks/useRoomParticipants"
 export default function CommunityPage() {
   const { slug } = useParams()
   const userName = Array.isArray(slug) ? slug[0] : slug as string
-
-  const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
-  const [mentionedRooms, setMentionedRooms] = useAtom(mentionedRoomsAtom)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
+  const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
   const roomMessages = useAtomValue(RoomMessagesAtom)
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
+  const deleteMentionedRoom = useSetAtom(deleteMentionedRoomAtom)
 
   const messages = roomMessages[currentRoomId] || []
 
@@ -34,7 +33,7 @@ export default function CommunityPage() {
     isError,
     error,
     refetch
-  } = useRoomParticipants(currentRoomId);
+  } = useRoomParticipants(currentRoomId, userName);
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
@@ -42,21 +41,11 @@ export default function CommunityPage() {
     if (currentRoomId) {
       changeRoomMode(currentRoomId, { notificationsOnly: true });
     }
-
     // 将新房间切换为完整模式
     changeRoomMode(roomId, { fullHistory: true });
-
     setCurrentRoomId(roomId)
-
     resetUnreadCount(roomId);
-
-    // 清除该房间的@提及标记
-    if (mentionedRooms.has(roomId)) {
-      const newMentionedRooms = new Set(mentionedRooms);
-      newMentionedRooms.delete(roomId);
-      setMentionedRooms(newMentionedRooms);
-    }
-
+    deleteMentionedRoom(roomId)
     setQuotedMessage(null)
   }
 
@@ -104,10 +93,6 @@ export default function CommunityPage() {
     setQuotedMessage(null)
   }
 
-  // 引用消息
-  const handleQuoteMessage = (message: Message) => {
-    setQuotedMessage(message)
-  }
 
   // 滚动到底部
   useEffect(() => {
@@ -133,17 +118,16 @@ export default function CommunityPage() {
               {ROOM_INFO[currentRoomId as keyof typeof ROOM_INFO]?.name || currentRoomId}
             </h2>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className={`gap-2 ${isError ? 'border-red-500' : ''}`}
+              <div
+                className={`gap-2 ${isError ? 'border-red-500' : ''} cursor-pointer bg-zinc-950 rounded-full flex items-center justify-center`}
                 onClick={() => refetch()}
                 title={isError ? '点击重试' : '参与者数量'}
               >
-                <span className="flex items-center justify-center h-6 w-6 bg-zinc-700 rounded-full text-xs">
-                  {isLoading ? '...' : isError ? '!' : roomParticipants?.length}
+                <span className="flex items-center justify-center h-[30px] w-[60px] bg-zinc-700 rounded-full text-xs">
+                  <User className="size-4 mr-1" />
+                  {isLoading ? '...' : isError ? '!' : (roomParticipants?.length ?? 0) + 1}
                 </span>
-                <span>参与者</span>
-              </Button>
+              </div>
             </div>
           </div>
 
@@ -177,7 +161,7 @@ export default function CommunityPage() {
                           <ChatBubbleAction
                             className="size-6 bg-zinc-950 hover:bg-zinc-950 hover:text-zinc-400"
                             icon={<Quote className="h-5 w-5" />}
-                            onClick={() => handleQuoteMessage(message)}
+                            onClick={() => setQuotedMessage(message)}
                           />
                         </ChatBubbleActionWrapper>
 

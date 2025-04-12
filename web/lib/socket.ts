@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { getDefaultStore } from 'jotai';
-import { mentionedRoomsAtom, RoomMessagesAtom, unreadCountsAtom } from './store/chat';
+import { deleteMentionedRoom, mentionedRoomsAtom, RoomMessagesAtom, unreadCountsAtom } from './store/chat';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
@@ -79,6 +79,7 @@ export const getSocket = (userName: string): Socket => {
         ...prev,
         [roomId]: formattedMessages
       }));
+      resetUnreadCount(roomId);
     });
 
     socket.on('receive_message', (message: Message) => {
@@ -89,6 +90,7 @@ export const getSocket = (userName: string): Socket => {
         ...prev,
         [roomId]: [...(prev[roomId] || []), { ...message, isCurrentUser: message.sender.name === userName }]
       }));
+      resetUnreadCount(roomId);
     });
   }
 

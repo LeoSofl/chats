@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Message } from "@/lib/socket"
 import { MentionList } from "@/components/ui/mention/mention-list"
+import { Popover, PopoverContent, PopoverTrigger } from "@radix-ui/react-popover"
 
 interface Participant {
   id: string
@@ -64,7 +65,6 @@ export function MessageInput({
             const span = document.createElement('span')
             span.style.font = window.getComputedStyle(inputRef.current).font
             span.style.position = 'absolute'
-            span.style.visibility = 'hidden'
             span.innerText = value.substring(0, lastAtIndex + 1)
             document.body.appendChild(span)
 
@@ -74,7 +74,7 @@ export function MessageInput({
             document.body.removeChild(span)
 
             setMentionPosition({
-              top: inputRect.top - 250, // 显示在输入框上方
+              top: inputRect.top - 100, // 显示在输入框上方
               left: inputRect.left + textWidth
             })
           }
@@ -145,35 +145,35 @@ export function MessageInput({
     }
   }
 
-  // 点击@按钮
-  const handleAtButtonClick = () => {
-    const newMessage = message + '@'
-    setMessage(newMessage)
+  // // 点击@按钮
+  // const handleAtButtonClick = () => {
+  //   const newMessage = message + '@'
+  //   setMessage(newMessage)
 
-    // 显示@菜单
-    if (inputRef.current) {
-      const inputRect = inputRef.current.getBoundingClientRect()
+  //   // 显示@菜单
+  //   if (inputRef.current) {
+  //     const inputRect = inputRef.current.getBoundingClientRect()
 
-      setMentionPosition({
-        top: inputRect.top - 250,
-        left: inputRect.left + inputRef.current.value.length * 8 // 简单估算宽度
-      })
+  //     setMentionPosition({
+  //       top: inputRect.top - 250,
+  //       left: inputRect.left + inputRef.current.value.length * 8 // 简单估算宽度
+  //     })
 
-      setShowMentions(true)
-      setMentionQuery('')
-      setMentionIndex(0)
+  //     setShowMentions(true)
+  //     setMentionQuery('')
+  //     setMentionIndex(0)
 
-      // 聚焦输入框
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus()
-          const position = newMessage.length
-          inputRef.current.setSelectionRange(position, position)
-          caretPositionRef.current = position
-        }
-      }, 0)
-    }
-  }
+  //     // 聚焦输入框
+  //     setTimeout(() => {
+  //       if (inputRef.current) {
+  //         inputRef.current.focus()
+  //         const position = newMessage.length
+  //         inputRef.current.setSelectionRange(position, position)
+  //         caretPositionRef.current = position
+  //       }
+  //     }, 0)
+  //   }
+  // }
 
   const handleSend = () => {
     if (message.trim()) {
@@ -202,7 +202,7 @@ export function MessageInput({
             <div className="text-xs text-zinc-400">
               回复 {quotedMessage.sender.name}
             </div>
-            <div className="text-sm text-zinc-300 line-clamp-1">
+            <div className="text-sm text-zinc-300 line-clamp-1 text-ellipsis">
               {quotedMessage.content}
             </div>
           </div>
@@ -217,7 +217,7 @@ export function MessageInput({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
           className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
@@ -228,16 +228,20 @@ export function MessageInput({
         >
           <AtSign className="h-5 w-5" />
           <span className="sr-only">提及用户</span>
-        </Button>
-        <Button
+        </Button> */}
+        {/* <Button
           variant="ghost"
           size="icon"
           className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
         >
           <Paperclip className="h-5 w-5" />
           <span className="sr-only">Attach file</span>
-        </Button>
+        </Button> */}
         <div className="relative flex-1">
+          {/* <Popover>
+            <PopoverTrigger>Open</PopoverTrigger>
+            <PopoverContent>Place content for the popover here.</PopoverContent>
+          </Popover> */}
           <Input
             ref={inputRef}
             value={message}

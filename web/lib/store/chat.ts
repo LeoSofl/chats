@@ -12,6 +12,13 @@ export const currentRoomIdAtom = atom<string>('share-your-story');
 
 // 被@提及的房间ID集合原子状态
 export const mentionedRoomsAtom = atom<Set<string>>(new Set<string>());
+export const deleteMentionedRoomAtom = atom(null, (get, set, roomId: string) => {
+  set(mentionedRoomsAtom, prev => {
+    const newSet = new Set(prev);
+    newSet.delete(roomId);
+    return newSet;
+  });
+});
 
 // 获取总未读消息数的派生原子状态
 export const totalUnreadCountAtom = atom((get) => {

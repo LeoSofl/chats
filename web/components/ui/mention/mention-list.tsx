@@ -50,10 +50,11 @@ export function MentionList({
 
     if (items.length === 0) return null
 
+
     return (
         <div
             ref={listRef}
-            className="absolute z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-lg overflow-hidden overflow-y-auto max-h-60 w-64"
+            className="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-lg overflow-hidden overflow-y-auto max-h-60 w-64"
             style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`

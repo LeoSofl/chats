@@ -15,7 +15,8 @@ interface UseRoomParticipantsOptions {
 
 export function useRoomParticipants(
     roomId: string,
-    options: UseRoomParticipantsOptions = {}
+    userName: string,
+    options: UseRoomParticipantsOptions = {},
 ) {
     const {
         enabled = true,
@@ -35,7 +36,7 @@ export function useRoomParticipants(
                 });
 
                 if (data?.roomParticipants) {
-                    return data.roomParticipants.map((p: { name: string; avatar?: string }) => ({
+                    return data.roomParticipants?.filter((p: { name: string; avatar?: string }) => p.name !== userName).map((p: { name: string; avatar?: string }) => ({
                         id: p.name,
                         name: p.name,
                         avatar: p.avatar

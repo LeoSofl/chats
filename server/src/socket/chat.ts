@@ -92,6 +92,10 @@ export const setupChatHandlers = (io: Server): void => {
       // 发送未读消息计数
       const unreadCounts = await getUnreadCountsForUser(userName);
       socket.emit('unread_counts', unreadCounts);
+
+      // 发送房间参与者
+      const participants = await Room.findOne({ name: roomId }).lean();
+      socket.emit('participants', participants);
     });
 
     // 离开房间
@@ -234,16 +238,16 @@ export const setupChatHandlers = (io: Server): void => {
               messageId: savedMessage._id.toString(),
               sender: data.sender
             });
-          }
 
-          // 如果用户被@了，发送特殊通知
-          if (socketState.userName && messageData.mentions?.includes(socketState.userName)) {
-            io.to(socketId).emit('mention_notification', {
-              roomId: data.roomId,
-              messageId: savedMessage._id.toString(),
-              sender: data.sender,
-              content: messageData.content
-            });
+            // 如果用户被@了，发送特殊通知
+            if (socketState.userName && messageData.mentions?.includes(socketState.userName)) {
+              io.to(socketId).emit('mention_notification', {
+                roomId: data.roomId,
+                messageId: savedMessage._id.toString(),
+                sender: data.sender,
+                content: messageData.content
+              });
+            }
           }
         }
       }

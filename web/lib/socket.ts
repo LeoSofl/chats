@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { getDefaultStore } from 'jotai';
-import { unreadCountsAtom } from './store/chat';
+import { mentionedRoomsAtom, RoomMessagesAtom, unreadCountsAtom } from './store/chat';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
@@ -67,27 +67,60 @@ export const getSocket = (userName: string): Socket => {
       // 使用 Jotai 设置未读消息计数
       jotaiStore.set(unreadCountsAtom, counts);
     });
+
+    socket.on('history_messages', (messages: Message[]) => {
+      const formattedMessages = messages.map(msg => ({
+        ...msg,
+        isCurrentUser: msg.sender.name === userName
+      }))
+
+      const roomId = messages?.[0]?.roomId;
+      jotaiStore.set(RoomMessagesAtom, prev => ({
+        ...prev,
+        [roomId]: formattedMessages
+      }));
+    });
+
+    socket.on('receive_message', (message: Message) => {
+      console.log("receive_message", message)
+
+      const roomId = message.roomId;
+      jotaiStore.set(RoomMessagesAtom, prev => ({
+        ...prev,
+        [roomId]: [...(prev[roomId] || []), { ...message, isCurrentUser: message.sender.name === userName }]
+      }));
+    });
   }
+
+  socket.on('mention_notification', (data: {
+    roomId: string,
+    messageId: string,
+    sender: { name: string, avatar?: string },
+    content: string
+  }) => {
+    jotaiStore.set(mentionedRoomsAtom, prev => {
+      const newSet = new Set(prev);
+      newSet.add(data.roomId);
+      return newSet;
+    });
+  });
 
   return socket;
 };
 
 export const closeSocket = (): void => {
   if (socket) {
+    socket.off('history_messages')
+    socket.off('receive_message')
+    socket.off('mention_notification')
+    socket.off('message_notification')
+    socket.off('unread_counts')
     socket.disconnect();
     socket = null;
     // 重置未读消息计数
     jotaiStore.set(unreadCountsAtom, {});
   }
 };
-
-export const clearRoomListeners = (): void => {
-  if (socket) {
-    socket.off('history_messages')
-    socket.off('receive_message')
-    socket.off('mention_notification')
-  }
-}
 
 // 房间相关功能
 export const joinRoom = (roomId: string, options?: { fullHistory?: boolean, notificationsOnly?: boolean }): void => {
@@ -100,32 +133,6 @@ export const joinRoom = (roomId: string, options?: { fullHistory?: boolean, noti
 export const leaveRoom = (roomId: string): void => {
   if (socket) {
     socket.emit('leave_room', { roomId });
-  }
-};
-
-export const getHistoryMessages = (roomId: string, callback: (messages: Message[]) => void): void => {
-  if (socket) {
-    // 先移除现有的监听器，避免多次添加
-    socket.off('history_messages');
-
-    // 然后添加新的监听器
-    socket.on('history_messages', (messages: Message[]) => {
-      callback(messages);
-    });
-  }
-};
-
-export const onReceiveNewMessage = (roomId: string, callback: (message: Message) => void): void => {
-  if (socket) {
-    // 先移除现有的监听器，避免多次添加
-    socket.off('receive_message');
-
-    // 然后添加新的监听器
-    socket.on('receive_message', (message: Message) => {
-      if (message?.roomId === roomId) {
-        callback(message);
-      }
-    });
   }
 };
 
@@ -168,19 +175,3 @@ export const markMessageAsRead = (messageId: string, userName: string): void => 
     socket.emit('mark_as_read', { messageId, userName });
   }
 };
-
-// 添加@提及通知处理函数
-export const onMentionNotification = (callback: (data: {
-  roomId: string,
-  messageId: string,
-  sender: { name: string, avatar?: string },
-  content: string
-}) => void): void => {
-  if (socket) {
-    // 先移除现有的监听器，避免多次添加
-    socket.off('mention_notification');
-
-    // 然后添加新的监听器
-    socket.on('mention_notification', callback);
-  }
-}; 

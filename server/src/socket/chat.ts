@@ -54,9 +54,9 @@ export const setupChatHandlers = (io: Server): void => {
       const { roomId, options = {} } = data;
       socket.join(roomId);
       console.log(`User ${userName} joined room ${roomId} with options:`, options);
-
       // 保存用户房间模式状态
       const userState = userConnections.get(socket.id);
+
       if (userState) {
         userState.rooms.set(roomId, {
           fullHistory: options.fullHistory || false,
@@ -122,12 +122,14 @@ export const setupChatHandlers = (io: Server): void => {
       if (userState && userState.rooms.has(roomId)) {
         const roomState = userState.rooms.get(roomId)!;
 
-        if (fullHistory !== undefined) {
+        if (fullHistory) {
           roomState.fullHistory = fullHistory;
+          roomState.notificationsOnly = false;
         }
 
-        if (notificationsOnly !== undefined) {
+        if (notificationsOnly) {
           roomState.notificationsOnly = notificationsOnly;
+          roomState.fullHistory = false;
         }
 
         userState.rooms.set(roomId, roomState);
@@ -162,7 +164,6 @@ export const setupChatHandlers = (io: Server): void => {
 
     // 重置某个房间的未读计数
     socket.on('reset_unread_count', async (roomId: string) => {
-      console.log('reset_unread_count', roomId, userName)
       // 标记该房间所有消息为已读
       await Message.updateMany(
         { roomId, readBy: { $nin: [userName] } },
@@ -220,7 +221,6 @@ export const setupChatHandlers = (io: Server): void => {
 
         if (socketState && socketState.rooms.has(data.roomId)) {
           const roomState = socketState.rooms.get(data.roomId)!;
-
           // 完整消息发送给不是通知模式的用户
           if (!roomState.notificationsOnly) {
             io.to(socketId).emit('receive_message', {

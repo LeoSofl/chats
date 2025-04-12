@@ -19,7 +19,7 @@ export function useRoomParticipants(
 ) {
     const {
         enabled = true,
-        refetchInterval = 30000
+        refetchInterval = 3000
     } = options;
 
     return useQuery({

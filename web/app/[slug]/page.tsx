@@ -2,24 +2,18 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react"
 import { Quote } from "lucide-react"
-import { useAtom } from 'jotai'
-
+import { useAtom, useAtomValue } from 'jotai'
 import { Button } from "@/components/ui/button"
 import { MessageInput } from "@/components/message-input"
 import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
-
-// Socket.io 和 GraphQL 相关
-import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, getHistoryMessages, Message, onReceiveNewMessage, onMentionNotification } from "@/lib/socket"
-// Jotai状态
-import { currentRoomIdAtom, mentionedRoomsAtom } from "@/lib/store/chat"
+import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, Message } from "@/lib/socket"
+import { currentRoomIdAtom, mentionedRoomsAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "./components/RoomList"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
-
-type RoomMessages = Record<string, Message[]>
 
 export default function CommunityPage() {
   const { slug } = useParams()
@@ -29,39 +23,18 @@ export default function CommunityPage() {
   const [mentionedRooms, setMentionedRooms] = useAtom(mentionedRoomsAtom)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  const [roomMessages, setRoomMessages] = useState<RoomMessages>({})
+  const roomMessages = useAtomValue(RoomMessagesAtom)
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
 
   const messages = roomMessages[currentRoomId] || []
 
-  // 获取当前房间的参与者列表
-  const [roomParticipants, setRoomParticipants] = useState<Array<{ id: string, name: string, avatar?: string }>>([])
-
-  const socketRef = useRef<any>(null)
-
-  // 使用React Query获取房间参与者
   const {
-    data: participants,
+    data: roomParticipants,
     isLoading,
     isError,
     error,
     refetch
   } = useRoomParticipants(currentRoomId);
-
-  // 当参与者数据变化时更新状态
-  useEffect(() => {
-    if (participants) {
-      setRoomParticipants(participants);
-      console.log('当前房间参与者:', participants);
-    }
-  }, [participants]);
-
-  // 当房间切换时手动刷新参与者数据
-  useEffect(() => {
-    if (currentRoomId) {
-      refetch();
-    }
-  }, [currentRoomId, refetch]);
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
@@ -89,66 +62,24 @@ export default function CommunityPage() {
 
   // init socket
   useEffect(() => {
-    const socket = getSocket(userName)
-    socketRef.current = socket
+    getSocket(userName)
     requestUnreadCounts();
+
+    // 加入其他房间但设置为仅通知模式
+    Object.keys(ROOM_INFO).forEach(roomId => {
+      if (roomId !== currentRoomId) {
+        joinRoom(roomId, { notificationsOnly: true });
+      }
+      else {
+        joinRoom(roomId, { fullHistory: true });
+      }
+    });
+
     return () => {
       closeSocket()
     }
   }, [userName])
 
-  useEffect(() => {
-    joinRoom(currentRoomId, { fullHistory: true });
-
-    // 加入其他房间但只接收通知
-    Object.keys(ROOM_INFO).forEach(roomId => {
-      if (roomId !== currentRoomId) {
-        joinRoom(roomId, { notificationsOnly: true });
-      }
-    });
-
-    // listen history messages
-    getHistoryMessages(currentRoomId, (historyMessages: Message[]) => {
-      const formattedMessages = historyMessages.map(msg => ({
-        ...msg,
-        isCurrentUser: msg.sender.name === userName
-      }))
-
-      setRoomMessages(prev => ({
-        ...prev,
-        [currentRoomId]: formattedMessages
-      }))
-    })
-
-    // listen new messages
-    onReceiveNewMessage(currentRoomId, (message: Message) => {
-      if (message.roomId) {
-        setRoomMessages(prev => ({
-          ...prev,
-          [message.roomId]: [
-            ...(prev[message.roomId] || []),
-            {
-              ...message,
-              isCurrentUser: message.sender.name === userName
-            }
-          ]
-        }))
-        resetUnreadCount(message.roomId)
-      }
-    })
-    // 监听@提及通知
-    onMentionNotification((data) => {
-      // 如果不是当前聊天室，添加到提及房间集合
-      if (data.roomId !== currentRoomId) {
-        setMentionedRooms(prev => {
-          const newSet = new Set(prev);
-          newSet.add(data.roomId);
-          return newSet;
-        });
-      }
-    });
-
-  }, [userName, currentRoomId])
 
   // 发送消息
   const handleSendMessage = (content: string, mentions: string[] = []) => {
@@ -209,7 +140,7 @@ export default function CommunityPage() {
                 title={isError ? '点击重试' : '参与者数量'}
               >
                 <span className="flex items-center justify-center h-6 w-6 bg-zinc-700 rounded-full text-xs">
-                  {isLoading ? '...' : isError ? '!' : roomParticipants.length}
+                  {isLoading ? '...' : isError ? '!' : roomParticipants?.length}
                 </span>
                 <span>参与者</span>
               </Button>
@@ -288,7 +219,7 @@ export default function CommunityPage() {
               onSendMessage={handleSendMessage}
               quotedMessage={quotedMessage}
               onCancelQuote={() => setQuotedMessage(null)}
-              participants={roomParticipants}
+              participants={roomParticipants || []}
             />
           </div>
         </div>

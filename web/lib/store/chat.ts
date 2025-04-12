@@ -1,4 +1,8 @@
 import { atom } from 'jotai';
+import { Message } from '../socket';
+
+// 房间消息原子状态
+export const RoomMessagesAtom = atom<Record<string, Message[]>>({});
 
 // 房间未读消息计数原子状态
 export const unreadCountsAtom = atom<Record<string, number>>({});

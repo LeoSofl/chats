@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Icon, Quote, RefreshCcw, Repeat2, Search, User2 } from "lucide-react"
+import { useAtom, useAtomValue } from 'jotai'
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ChatMessages } from "@/components/chat-messages"
 import { MessageInput } from "@/components/message-input"
 import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -14,8 +12,9 @@ import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
 
 // Socket.io 和 GraphQL 相关
-import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, roomUnreadCounts, resetUnreadCount, requestUnreadCounts } from "@/lib/socket"
-import { ChatSidebar } from "@/components/chat-sidebar"
+import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts } from "@/lib/socket"
+// Jotai状态
+import { totalUnreadCountAtom, unreadCountsAtom, roomUnreadCountAtomFamily, currentRoomIdAtom } from "@/lib/store/chat"
 
 export interface Message {
   id: string
@@ -41,30 +40,19 @@ const ROOM_INFO = {
 export default function CommunityPage() {
   const { slug } = useParams()
   const userName = Array.isArray(slug) ? slug[0] : slug as string
-  const [currentRoomId, setCurrentRoomId] = useState<string>('share-your-story')
+  // 使用Jotai管理当前房间ID
+  const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   
   // 每个房间的消息
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
-  // 记录本地未读消息计数
-  const [localUnreadCounts, setLocalUnreadCounts] = useState<Record<string, number>>({})
+  // 使用Jotai管理未读消息计数
+  const unreadCounts = useAtomValue(unreadCountsAtom)
+  const totalUnread = useAtomValue(totalUnreadCountAtom)
 
   // 当前房间的消息
   const messages = roomMessages[currentRoomId] || []
-
-  // 监听全局未读消息计数变化
-  useEffect(() => {
-    // 同步全局未读计数到本地状态
-    setLocalUnreadCounts({...roomUnreadCounts});
-    
-    // 添加轮询以定期更新未读计数（可选）
-    const intervalId = setInterval(() => {
-      setLocalUnreadCounts({...roomUnreadCounts});
-    }, 2000);
-    
-    return () => clearInterval(intervalId);
-  }, [roomUnreadCounts]);
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
@@ -135,7 +123,7 @@ export default function CommunityPage() {
       socket.off('receive_message')
       closeSocket()
     }
-  }, [userName])
+  }, [userName, currentRoomId])
 
   // 发送消息
   const handleSendMessage = (content: string) => {
@@ -189,30 +177,34 @@ export default function CommunityPage() {
           </div>
           
           <div className="space-y-1 px-1">
-            {Object.entries(ROOM_INFO).map(([roomId, room]) => (
-              <button 
-                key={roomId}
-                onClick={() => handleRoomChange(roomId)}
-                className={`flex items-center px-2 py-2 rounded-md  w-full text-left ${
-                  currentRoomId === roomId 
-                    ? "bg-zinc-800" 
-                    : "hover:bg-zinc-800/50"
-                }`}
-              >
-                <div className=" flex items-center justify-center mr-2 text-lg">
-                  {roomId === 'share-your-story' ? '📝' : 
-                   roomId === 'general' ? '💬' : 
-                   roomId === 'design-product' ? '🎨' : 
-                   roomId === 'product-team' ? '👥' : '📢'}
-                </div>
-                <span className="text-sm">{room.name}</span>
-                {localUnreadCounts[roomId] > 0 && (
-                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-xs">
-                    {localUnreadCounts[roomId] > 99 ? '99+' : localUnreadCounts[roomId]}
-                  </span>
-                )}
-              </button>
-            ))}
+            {Object.entries(ROOM_INFO).map(([roomId, room]) => {
+              // 创建对应房间的未读消息计数原子
+              const roomUnreadCount = unreadCounts[roomId] || 0;
+              return (
+                <button 
+                  key={roomId}
+                  onClick={() => handleRoomChange(roomId)}
+                  className={`flex items-center px-2 py-2 rounded-md  w-full text-left ${
+                    currentRoomId === roomId 
+                      ? "bg-zinc-800" 
+                      : "hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <div className=" flex items-center justify-center mr-2 text-lg">
+                    {roomId === 'share-your-story' ? '📝' : 
+                     roomId === 'general' ? '💬' : 
+                     roomId === 'design-product' ? '🎨' : 
+                     roomId === 'product-team' ? '👥' : '📢'}
+                  </div>
+                  <span className="text-sm">{room.name}</span>
+                  {roomUnreadCount > 0 && (
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-xs">
+                      {roomUnreadCount > 99 ? '99+' : roomUnreadCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           
           {/* 人员分类 */}
@@ -246,7 +238,7 @@ export default function CommunityPage() {
             </h2>
             <Button variant="outline" className="gap-2">
               <span className="flex items-center justify-center h-5 w-5 bg-zinc-700 rounded-full text-xs">
-                {Object.values(localUnreadCounts).reduce((sum, count) => sum + count, 0)}
+                {totalUnread}
               </span>
               <span>总未读</span>
             </Button>

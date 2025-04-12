@@ -1,10 +1,12 @@
 import { io, Socket } from 'socket.io-client';
+import { getDefaultStore } from 'jotai';
+import { unreadCountsAtom } from './store/chat';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
 let socket: Socket | null = null;
-// 跟踪房间未读消息计数
-export let roomUnreadCounts: Record<string, number> = {};
+// Jotai 默认 store
+const jotaiStore = getDefaultStore();
 
 export const getSocket = (userName: string): Socket => {
   if (!socket) {
@@ -29,12 +31,18 @@ export const getSocket = (userName: string): Socket => {
     
     // 添加未读消息通知处理
     socket.on('message_notification', (notification: { roomId: string }) => {
-      roomUnreadCounts[notification.roomId] = (roomUnreadCounts[notification.roomId] || 0) + 1;
+      // 使用 Jotai 更新未读消息计数
+      jotaiStore.set(unreadCountsAtom, prev => {
+        const newCounts = { ...prev };
+        newCounts[notification.roomId] = (newCounts[notification.roomId] || 0) + 1;
+        return newCounts;
+      });
     });
     
     // 接收所有房间的未读消息计数
     socket.on('unread_counts', (counts: Record<string, number>) => {
-      roomUnreadCounts = counts;
+      // 使用 Jotai 设置未读消息计数
+      jotaiStore.set(unreadCountsAtom, counts);
     });
   }
 
@@ -45,7 +53,8 @@ export const closeSocket = (): void => {
   if (socket) {
     socket.disconnect();
     socket = null;
-    roomUnreadCounts = {};
+    // 重置未读消息计数
+    jotaiStore.set(unreadCountsAtom, {});
   }
 };
 
@@ -74,8 +83,12 @@ export const requestUnreadCounts = (): void => {
 export const resetUnreadCount = (roomId: string): void => {
   if (socket) {
     socket.emit('reset_unread_count', roomId);
-    // 本地也更新
-    roomUnreadCounts[roomId] = 0;
+    // 本地也更新 Jotai 状态
+    jotaiStore.set(unreadCountsAtom, prev => {
+      const newCounts = { ...prev };
+      newCounts[roomId] = 0;
+      return newCounts;
+    });
   }
 };
 

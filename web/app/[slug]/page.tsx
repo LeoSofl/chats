@@ -3,7 +3,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react"
 import { Quote, User } from "lucide-react"
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Button } from "@/components/ui/button"
 import { MessageInput } from "@/components/message-input"
 import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -12,17 +11,20 @@ import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar
 import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, Message } from "@/lib/socket"
 import { currentRoomIdAtom, deleteMentionedRoomAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
-import { ROOM_INFO, RoomList } from "./components/RoomList"
+import { ROOM_INFO, RoomList } from "../../components/room-list"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
 
 export default function CommunityPage() {
   const { slug } = useParams()
   const userName = Array.isArray(slug) ? slug[0] : slug as string
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLDivElement>(null)
+  const scrollAreaWrapperRef = useRef<HTMLDivElement>(null)
 
   const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
   const roomMessages = useAtomValue(RoomMessagesAtom)
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
+  const [scrollAreaWrapperHeight, setScrollAreaWrapperHeight] = useState(0)
   const deleteMentionedRoom = useSetAtom(deleteMentionedRoomAtom)
 
   const messages = roomMessages[currentRoomId] || []
@@ -102,7 +104,23 @@ export default function CommunityPage() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
       }
     }
-  }, [messages])
+  }, [messages, quotedMessage])
+
+  useEffect(() => {
+    if (scrollAreaWrapperRef.current) {
+      const scrollAreaWrapperRect = scrollAreaWrapperRef?.current?.getBoundingClientRect()
+      setScrollAreaWrapperHeight(scrollAreaWrapperRect?.height ?? 0)
+
+      window.addEventListener("resize", () => {
+        const scrollAreaWrapperRect = scrollAreaWrapperRef?.current?.getBoundingClientRect()
+        setScrollAreaWrapperHeight(scrollAreaWrapperRect?.height ?? 0)
+      })
+
+    }
+    return () => {
+      window.removeEventListener("resize", () => { })
+    }
+  }, [])
 
   return (
     <div className="bg-zinc-950 h-fulll w-full text-white overflow-hidden">
@@ -132,8 +150,8 @@ export default function CommunityPage() {
           </div>
 
           {/* 消息区域 */}
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-[calc(100vh-18rem)]" ref={scrollAreaRef}>
+          <div className="flex-1 overflow-hidden" ref={scrollAreaWrapperRef}>
+            <ScrollArea ref={scrollAreaRef} style={{ height: `${quotedMessage ? scrollAreaWrapperHeight - 80 : scrollAreaWrapperHeight}px` }}>
               <div className="p-4">
                 <ChatMessageList>
                   {messages.map((message) => (
@@ -198,7 +216,7 @@ export default function CommunityPage() {
           </div>
 
           {/* 消息输入区域 */}
-          <div className="p-4 border-t border-zinc-800">
+          <div className="p-4 border-t border-zinc-800" ref={inputRef}>
             <MessageInput
               onSendMessage={handleSendMessage}
               quotedMessage={quotedMessage}

@@ -9,6 +9,15 @@ export interface IMessage {
   roomId: string;
   timestamp: Date;
   readBy: string[];
+  quote?: {
+    messageId: mongoose.Types.ObjectId;
+    content: string; // why content? speed up the query and if the message is deleted, the quote will not be deleted
+    sender: {
+      name: string;
+      avatar?: string;
+    };
+    timestamp: Date;
+  };
 }
 
 const MessageSchema = new mongoose.Schema<IMessage>({
@@ -19,7 +28,16 @@ const MessageSchema = new mongoose.Schema<IMessage>({
   },
   roomId: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
-  readBy: [String]
+  readBy: [String],
+  quote: {
+    messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+    content: String,
+    sender: {
+      name: String,
+      avatar: String
+    },
+    timestamp: Date
+  }
 });
 
 export const Message = mongoose.model<IMessage>('Message', MessageSchema); 

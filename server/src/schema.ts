@@ -6,21 +6,22 @@ export const typeDefs = gql`
     avatar: String
   }
 
-  type QuotedMessage {
-    id: ID!
+  type Quote {
+    messageId: ID!
     content: String!
-    senderName: String!
+    sender: User!
+    timestamp: String!
   }
 
   type Message {
-    id: ID!
+    _id: ID!
     content: String!
     sender: User!
     roomId: String!
     timestamp: String!
     readBy: [String!]!
     mentions: [String!]
-    quotedMessage: QuotedMessage
+    quote: Quote
   }
 
   type Room {
@@ -37,7 +38,7 @@ export const typeDefs = gql`
   type Query {
     rooms: [Room!]!
     room(name: String!): Room
-    messages(roomId: String!, limit: Int): [Message!]!
+    roomMessages(roomId: String!, limit: Int, offset: Int): [Message!]!
     unreadCount(roomId: String!, userName: String!): UnreadCount!
     roomParticipants(roomId: String!): [User!]!
   }

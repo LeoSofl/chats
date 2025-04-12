@@ -30,27 +30,6 @@ export const GET_ROOM = gql`
   }
 `;
 
-// 查询消息
-export const GET_MESSAGES = gql`
-  query GetMessages($roomId: String!, $limit: Int) {
-    messages(roomId: $roomId, limit: $limit) {
-      id
-      content
-      sender {
-        name
-        avatar
-      }
-      roomId
-      timestamp
-      readBy
-      quotedMessage {
-        id
-        content
-        senderName
-      }
-    }
-  }
-`;
 
 // 查询未读消息数
 export const GET_UNREAD_COUNT = gql`
@@ -118,4 +97,29 @@ export const GET_ROOM_PARTICIPANTS = gql`
       avatar
     }
   }
-`; 
+`;
+
+// 查询房间消息
+export const GET_ROOM_MESSAGES = gql`
+  query GetRoomMessages($roomId: String!, $limit: Int, $offset: Int) {
+    roomMessages(roomId: $roomId, limit: $limit, offset: $offset) {
+      _id  
+      content
+      sender {
+        name
+        avatar
+      }
+      timestamp
+      readBy
+      quote {
+        messageId
+        content
+        sender {
+          name
+          avatar
+        }
+        timestamp
+      }
+    }
+  }
+`;

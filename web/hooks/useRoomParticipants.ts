@@ -19,7 +19,7 @@ export function useRoomParticipants(
     options: UseRoomParticipantsOptions = {},
 ) {
     const {
-        enabled = true,
+        enabled = false,
         refetchInterval = 3000
     } = options;
 

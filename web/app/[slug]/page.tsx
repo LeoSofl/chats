@@ -8,11 +8,12 @@ import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
-import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, Message } from "@/lib/socket"
+import { getSocket, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, Message } from "@/lib/socket"
 import { currentRoomIdAtom, deleteMentionedRoomAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "../../components/room-list"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
+import { useRoomMessages } from "@/hooks/useRoomMessages"
 
 export default function CommunityPage() {
   const { slug } = useParams()
@@ -26,16 +27,24 @@ export default function CommunityPage() {
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
   const [scrollAreaWrapperHeight, setScrollAreaWrapperHeight] = useState(0)
   const deleteMentionedRoom = useSetAtom(deleteMentionedRoomAtom)
-
-  const messages = roomMessages[currentRoomId] || []
+  const isFetchMoreRef = useRef(false)
 
   const {
     data: roomParticipants,
     isLoading,
     isError,
-    error,
     refetch
   } = useRoomParticipants(currentRoomId, userName);
+  const messages = roomMessages?.[currentRoomId] || []
+
+  const {
+    isLoading: isRoomMessagesLoading,
+    fetchNextPage
+  } = useRoomMessages({
+    roomId: currentRoomId,
+    userName,
+  });
+
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
@@ -53,18 +62,7 @@ export default function CommunityPage() {
 
   // init socket
   useEffect(() => {
-    getSocket(userName)
-    requestUnreadCounts();
-
-    // 加入其他房间但设置为仅通知模式
-    Object.keys(ROOM_INFO).forEach(roomId => {
-      if (roomId !== currentRoomId) {
-        joinRoom(roomId, { notificationsOnly: true });
-      }
-      else {
-        joinRoom(roomId, { fullHistory: true });
-      }
-    });
+    getSocket(userName, currentRoomId)
 
     return () => {
       closeSocket()
@@ -98,6 +96,17 @@ export default function CommunityPage() {
 
   // 滚动到底部
   useEffect(() => {
+    if (isFetchMoreRef.current) {
+      isFetchMoreRef.current = false
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+        if (scrollContainer) {
+          scrollContainer.scrollTop = 2500
+
+        }
+      }
+      return
+    }
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollContainer) {
@@ -121,6 +130,18 @@ export default function CommunityPage() {
       window.removeEventListener("resize", () => { })
     }
   }, [])
+
+  const handleScrollCapture = () => {
+    if (scrollAreaRef.current && !isRoomMessagesLoading) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollContainer) {
+        if (scrollContainer.scrollTop === 0) {
+          fetchNextPage()
+          isFetchMoreRef.current = true
+        }
+      }
+    }
+  }
 
   return (
     <div className="bg-zinc-950 h-fulll w-full text-white overflow-hidden">
@@ -151,7 +172,7 @@ export default function CommunityPage() {
 
           {/* 消息区域 */}
           <div className="flex-1 overflow-hidden" ref={scrollAreaWrapperRef}>
-            <ScrollArea ref={scrollAreaRef} style={{ height: `${quotedMessage ? scrollAreaWrapperHeight - 80 : scrollAreaWrapperHeight}px` }}>
+            <ScrollArea onScrollCapture={handleScrollCapture} ref={scrollAreaRef} style={{ height: `${quotedMessage ? scrollAreaWrapperHeight - 80 : scrollAreaWrapperHeight}px` }}>
               <div className="p-4">
                 <ChatMessageList>
                   {messages.map((message) => (

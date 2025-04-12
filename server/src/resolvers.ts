@@ -16,6 +16,7 @@ interface RoomArgs {
 interface MessagesArgs {
   roomId: string;
   limit?: number;
+  offset?: number;
 }
 
 interface UnreadCountArgs {
@@ -76,17 +77,15 @@ export const resolvers: IResolvers<any, Context> = {
       };
     },
 
-    messages: async (_, { roomId, limit = 50 }: MessagesArgs) => {
+    roomMessages: async (_, { roomId, limit = 50, offset = 0 }: MessagesArgs): Promise<IMessage[]> => {
+      console.log('offset', offset);
       const messages = await Message.find({ roomId })
         .sort({ timestamp: -1 })
         .limit(limit)
+        .skip(offset)
         .lean();
 
-      return messages.reverse().map(msg => ({
-        ...msg,
-        id: msg._id.toString(),
-        timestamp: msg.timestamp.toISOString()
-      }));
+      return messages.reverse()
     },
 
     unreadCount: async (_, { roomId, userName }: UnreadCountArgs) => {

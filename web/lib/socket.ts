@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { getDefaultStore } from 'jotai';
-import { deleteMentionedRoom, mentionedRoomsAtom, RoomMessagesAtom, unreadCountsAtom } from './store/chat';
+import { mentionedRoomsAtom, RoomMessagesAtom, unreadCountsAtom } from './store/chat';
+import { ROOM_INFO } from '@/components/room-list';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
@@ -31,7 +32,7 @@ let socket: Socket | null = null;
 // Jotai 默认 store
 const jotaiStore = getDefaultStore();
 
-export const getSocket = (userName: string): Socket => {
+export const getSocket = (userName: string, currentRoomId: string): Socket => {
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: true,
@@ -68,19 +69,19 @@ export const getSocket = (userName: string): Socket => {
       jotaiStore.set(unreadCountsAtom, counts);
     });
 
-    socket.on('history_messages', (messages: Message[]) => {
-      const formattedMessages = messages.map(msg => ({
-        ...msg,
-        isCurrentUser: msg.sender.name === userName
-      }))
+    // socket.on('history_messages', (messages: Message[]) => {
+    //   const formattedMessages = messages.map(msg => ({
+    //     ...msg,
+    //     isCurrentUser: msg.sender.name === userName
+    //   }))
 
-      const roomId = messages?.[0]?.roomId;
-      jotaiStore.set(RoomMessagesAtom, prev => ({
-        ...prev,
-        [roomId]: formattedMessages
-      }));
-      resetUnreadCount(roomId);
-    });
+    //   const roomId = messages?.[0]?.roomId;
+    //   jotaiStore.set(RoomMessagesAtom, prev => ({
+    //     ...prev,
+    //     [roomId]: formattedMessages
+    //   }));
+    //   resetUnreadCount(roomId);
+    // });
 
     socket.on('receive_message', (message: Message) => {
       console.log("receive_message", message)
@@ -91,6 +92,16 @@ export const getSocket = (userName: string): Socket => {
         [roomId]: [...(prev[roomId] || []), { ...message, isCurrentUser: message.sender.name === userName }]
       }));
       resetUnreadCount(roomId);
+    });
+
+    // 加入其他房间但设置为仅通知模式
+    Object.keys(ROOM_INFO).forEach(roomId => {
+      if (roomId !== currentRoomId) {
+        joinRoom(roomId, { notificationsOnly: true });
+      }
+      else {
+        joinRoom(roomId, { fullHistory: true });
+      }
     });
   }
 

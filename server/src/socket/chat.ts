@@ -79,15 +79,15 @@ export const setupChatHandlers = (io: Server): void => {
         );
       }
 
-      // 只有需要完整历史的用户才获取历史消息
-      if (!options.notificationsOnly) {
-        const messages = await Message.find({ roomId })
-          .sort({ timestamp: -1 })
-          .limit(50)
-          .lean();
+      // // 只有需要完整历史的用户才获取历史消息
+      // if (!options.notificationsOnly) {
+      //   const messages = await Message.find({ roomId })
+      //     .sort({ timestamp: -1 })
+      //     .limit(50)
+      //     .lean();
 
-        socket.emit('history_messages', messages.reverse());
-      }
+      //   socket.emit('history_messages', messages.reverse());
+      // }
 
       // 发送未读消息计数
       const unreadCounts = await getUnreadCountsForUser(userName);
@@ -141,12 +141,12 @@ export const setupChatHandlers = (io: Server): void => {
 
       // 如果切换到完整模式，发送历史消息
       if (fullHistory) {
-        const messages = await Message.find({ roomId })
-          .sort({ timestamp: -1 })
-          .limit(50)
-          .lean();
+        // const messages = await Message.find({ roomId })
+        //   .sort({ timestamp: -1 })
+        //   .limit(50)
+        //   .lean();
 
-        socket.emit('history_messages', messages.reverse());
+        // socket.emit('history_messages', messages.reverse());
 
         // 标记该房间所有消息为已读
         await Message.updateMany(

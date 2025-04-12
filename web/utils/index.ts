@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 // 消息时间格式化
 export const formatMessageTime = (timestamp?: string): string => {
     if (!timestamp) return '';
@@ -16,3 +18,4 @@ export const formatMessageTime = (timestamp?: string): string => {
             date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     }
 };
+

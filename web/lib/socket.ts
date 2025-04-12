@@ -14,6 +14,7 @@ export interface Message {
   timestamp?: string
   isCurrentUser?: boolean
   readBy?: string[]
+  mentions?: string[]
   roomId: string
   quote?: {
     messageId: string;
@@ -21,7 +22,7 @@ export interface Message {
     sender: {
       name: string;
       avatar?: string;
-    };  
+    };
     timestamp: string;
   };
 }
@@ -50,7 +51,7 @@ export const getSocket = (userName: string): Socket => {
     socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
     });
-    
+
     // 添加未读消息通知处理
     socket.on('message_notification', (notification: { roomId: string }) => {
       // 使用 Jotai 更新未读消息计数
@@ -60,7 +61,7 @@ export const getSocket = (userName: string): Socket => {
         return newCounts;
       });
     });
-    
+
     // 接收所有房间的未读消息计数
     socket.on('unread_counts', (counts: Record<string, number>) => {
       // 使用 Jotai 设置未读消息计数
@@ -80,6 +81,14 @@ export const closeSocket = (): void => {
   }
 };
 
+export const clearRoomListeners = (): void => {
+  if (socket) {
+    socket.off('history_messages')
+    socket.off('receive_message')
+    socket.off('mention_notification')
+  }
+}
+
 // 房间相关功能
 export const joinRoom = (roomId: string, options?: { fullHistory?: boolean, notificationsOnly?: boolean }): void => {
   if (socket) {
@@ -87,8 +96,19 @@ export const joinRoom = (roomId: string, options?: { fullHistory?: boolean, noti
   }
 };
 
+// 离开房间
+export const leaveRoom = (roomId: string): void => {
+  if (socket) {
+    socket.emit('leave_room', { roomId });
+  }
+};
+
 export const getHistoryMessages = (roomId: string, callback: (messages: Message[]) => void): void => {
   if (socket) {
+    // 先移除现有的监听器，避免多次添加
+    socket.off('history_messages');
+
+    // 然后添加新的监听器
     socket.on('history_messages', (messages: Message[]) => {
       callback(messages);
     });
@@ -97,6 +117,10 @@ export const getHistoryMessages = (roomId: string, callback: (messages: Message[
 
 export const onReceiveNewMessage = (roomId: string, callback: (message: Message) => void): void => {
   if (socket) {
+    // 先移除现有的监听器，避免多次添加
+    socket.off('receive_message');
+
+    // 然后添加新的监听器
     socket.on('receive_message', (message: Message) => {
       if (message?.roomId === roomId) {
         callback(message);
@@ -133,7 +157,7 @@ export const resetUnreadCount = (roomId: string): void => {
 };
 
 // 消息相关功能
-export const sendMessage = (data: Message & { quotedMessageId?: string }): void => {
+export const sendMessage = (data: Message & { quotedMessageId?: string, mentions?: string[] }): void => {
   if (socket) {
     socket.emit('send_message', data);
   }
@@ -142,5 +166,21 @@ export const sendMessage = (data: Message & { quotedMessageId?: string }): void 
 export const markMessageAsRead = (messageId: string, userName: string): void => {
   if (socket) {
     socket.emit('mark_as_read', { messageId, userName });
+  }
+};
+
+// 添加@提及通知处理函数
+export const onMentionNotification = (callback: (data: {
+  roomId: string,
+  messageId: string,
+  sender: { name: string, avatar?: string },
+  content: string
+}) => void): void => {
+  if (socket) {
+    // 先移除现有的监听器，避免多次添加
+    socket.off('mention_notification');
+
+    // 然后添加新的监听器
+    socket.on('mention_notification', callback);
   }
 }; 

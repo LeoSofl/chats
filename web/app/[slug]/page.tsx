@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { ReactNode, useEffect, useRef, useState } from "react"
 import { Quote } from "lucide-react"
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom } from 'jotai'
 
 import { Button } from "@/components/ui/button"
 import { MessageInput } from "@/components/message-input"
@@ -12,11 +12,12 @@ import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
 
 // Socket.io 和 GraphQL 相关
-import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, getHistoryMessages, getNewMessage, Message, onReceiveNewMessage } from "@/lib/socket"
+import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, getHistoryMessages, Message, onReceiveNewMessage, onMentionNotification } from "@/lib/socket"
 // Jotai状态
-import { totalUnreadCountAtom, currentRoomIdAtom } from "@/lib/store/chat"
+import { currentRoomIdAtom, mentionedRoomsAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "./components/RoomList"
+import { useRoomParticipants } from "@/hooks/useRoomParticipants"
 
 type RoomMessages = Record<string, Message[]>
 
@@ -25,14 +26,42 @@ export default function CommunityPage() {
   const userName = Array.isArray(slug) ? slug[0] : slug as string
 
   const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
+  const [mentionedRooms, setMentionedRooms] = useAtom(mentionedRoomsAtom)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   const [roomMessages, setRoomMessages] = useState<RoomMessages>({})
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
 
-  const totalUnread = useAtomValue(totalUnreadCountAtom)
-
   const messages = roomMessages[currentRoomId] || []
+
+  // 获取当前房间的参与者列表
+  const [roomParticipants, setRoomParticipants] = useState<Array<{ id: string, name: string, avatar?: string }>>([])
+
+  const socketRef = useRef<any>(null)
+
+  // 使用React Query获取房间参与者
+  const {
+    data: participants,
+    isLoading,
+    isError,
+    error,
+    refetch
+  } = useRoomParticipants(currentRoomId);
+
+  // 当参与者数据变化时更新状态
+  useEffect(() => {
+    if (participants) {
+      setRoomParticipants(participants);
+      console.log('当前房间参与者:', participants);
+    }
+  }, [participants]);
+
+  // 当房间切换时手动刷新参与者数据
+  useEffect(() => {
+    if (currentRoomId) {
+      refetch();
+    }
+  }, [currentRoomId, refetch]);
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
@@ -45,19 +74,30 @@ export default function CommunityPage() {
     changeRoomMode(roomId, { fullHistory: true });
 
     setCurrentRoomId(roomId)
-    // 重置该房间的未读计数
+
     resetUnreadCount(roomId);
+
+    // 清除该房间的@提及标记
+    if (mentionedRooms.has(roomId)) {
+      const newMentionedRooms = new Set(mentionedRooms);
+      newMentionedRooms.delete(roomId);
+      setMentionedRooms(newMentionedRooms);
+    }
+
     setQuotedMessage(null)
   }
 
   // init socket
   useEffect(() => {
     const socket = getSocket(userName)
-
-    // 请求所有房间的未读消息计数
+    socketRef.current = socket
     requestUnreadCounts();
+    return () => {
+      closeSocket()
+    }
+  }, [userName])
 
-    // 初始化：加入当前房间并获取完整消息历史
+  useEffect(() => {
     joinRoom(currentRoomId, { fullHistory: true });
 
     // 加入其他房间但只接收通知
@@ -96,17 +136,22 @@ export default function CommunityPage() {
         resetUnreadCount(message.roomId)
       }
     })
+    // 监听@提及通知
+    onMentionNotification((data) => {
+      // 如果不是当前聊天室，添加到提及房间集合
+      if (data.roomId !== currentRoomId) {
+        setMentionedRooms(prev => {
+          const newSet = new Set(prev);
+          newSet.add(data.roomId);
+          return newSet;
+        });
+      }
+    });
 
-    // 清理函数
-    return () => {
-      socket.off('history_messages')
-      socket.off('receive_message')
-      closeSocket()
-    }
   }, [userName, currentRoomId])
 
   // 发送消息
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, mentions: string[] = []) => {
     if (!content.trim()) return
 
     const messageData = {
@@ -116,7 +161,9 @@ export default function CommunityPage() {
         name: userName,
       },
       // 如果有引用消息，添加引用消息ID
-      quotedMessageId: quotedMessage?._id
+      quotedMessageId: quotedMessage?._id,
+      // 添加提及的用户
+      mentions
     }
 
     // 发送到服务器
@@ -154,12 +201,19 @@ export default function CommunityPage() {
             <h2 className="text-xl font-semibold">
               {ROOM_INFO[currentRoomId as keyof typeof ROOM_INFO]?.name || currentRoomId}
             </h2>
-            <Button variant="outline" className="gap-2">
-              <span className="flex items-center justify-center h-5 w-5 bg-zinc-700 rounded-full text-xs">
-                {totalUnread}
-              </span>
-              <span>总未读</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className={`gap-2 ${isError ? 'border-red-500' : ''}`}
+                onClick={() => refetch()}
+                title={isError ? '点击重试' : '参与者数量'}
+              >
+                <span className="flex items-center justify-center h-6 w-6 bg-zinc-700 rounded-full text-xs">
+                  {isLoading ? '...' : isError ? '!' : roomParticipants.length}
+                </span>
+                <span>参与者</span>
+              </Button>
+            </div>
           </div>
 
           {/* 消息区域 */}
@@ -181,7 +235,7 @@ export default function CommunityPage() {
                         >
 
                           <div>
-                            {message.content}
+                            {highlightMentions(message.content, message.mentions)}
                             {/* <div className="text-xs opacity-70 mt-1 text-right">
                             {formatMessageTime(message.timestamp)}
                           </div> */}
@@ -234,6 +288,7 @@ export default function CommunityPage() {
               onSendMessage={handleSendMessage}
               quotedMessage={quotedMessage}
               onCancelQuote={() => setQuotedMessage(null)}
+              participants={roomParticipants}
             />
           </div>
         </div>
@@ -241,3 +296,47 @@ export default function CommunityPage() {
     </div>
   )
 }
+
+
+// 处理消息中的@提及，返回带有高亮样式的React节点
+export const highlightMentions = (content: string, mentions?: string[]): ReactNode => {
+  if (!mentions || mentions.length === 0) {
+    return content;
+  }
+
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+
+  // 为每个被提及的用户创建正则表达式
+  mentions.forEach(name => {
+    const mentionPattern = new RegExp(`@${name}\\b`, 'g');
+    let match;
+
+    while ((match = mentionPattern.exec(content)) !== null) {
+      // 添加提及前的文本
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+
+      // 添加高亮的@用户名
+      parts.push(
+        <span
+          key={`mention-${match.index}`}
+          className="bg-[#04B17D]/30 text-[#04B17D] rounded px-1"
+        >
+          {match[0]}
+        </span>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+  });
+
+  // 添加剩余文本
+  if (lastIndex < content.length) {
+    parts.push(content.substring(lastIndex));
+  }
+
+  // 如果没有找到提及，返回原始内容
+  return parts.length > 0 ? parts : content;
+};

@@ -19,6 +19,7 @@ export const typeDefs = gql`
     roomId: String!
     timestamp: String!
     readBy: [String!]!
+    mentions: [String!]
     quotedMessage: QuotedMessage
   }
 
@@ -38,12 +39,14 @@ export const typeDefs = gql`
     room(name: String!): Room
     messages(roomId: String!, limit: Int): [Message!]!
     unreadCount(roomId: String!, userName: String!): UnreadCount!
+    roomParticipants(roomId: String!): [User!]!
   }
 
   type Mutation {
     createRoom(name: String!): Room!
     joinRoom(roomId: String!, userName: String!): Room!
-    sendMessage(roomId: String!, content: String!, senderName: String!, quotedMessageId: ID): Message!
+    sendMessage(roomId: String!, content: String!, senderName: String!, quotedMessageId: ID, mentions: [String!]): Message!
     markAsRead(messageId: ID!, userName: String!): Message
+    leaveRoom(roomId: String!, userName: String!): Room!
   }
 `; 

@@ -10,6 +10,7 @@ export interface IMessage {
   roomId: string;
   timestamp: Date;
   readBy: string[];
+  mentions?: string[];
   quote?: {
     messageId: mongoose.Types.ObjectId;
     content: string; // why content? speed up the query and if the message is deleted, the quote will not be deleted
@@ -30,6 +31,7 @@ const MessageSchema = new mongoose.Schema<IMessage>({
   roomId: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
   readBy: [String],
+  mentions: [String],
   quote: {
     messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
     content: String,

@@ -23,6 +23,10 @@ interface UnreadCountArgs {
   userName: string;
 }
 
+interface RoomParticipantsArgs {
+  roomId: string;
+}
+
 // 定义变更参数类型
 interface CreateRoomArgs {
   name: string;
@@ -33,11 +37,17 @@ interface JoinRoomArgs {
   userName: string;
 }
 
+interface LeaveRoomArgs {
+  roomId: string;
+  userName: string;
+}
+
 interface SendMessageArgs {
   roomId: string;
   content: string;
   senderName: string;
   quotedMessageId?: string;
+  mentions?: string[];
 }
 
 interface MarkAsReadArgs {
@@ -86,6 +96,24 @@ export const resolvers: IResolvers<any, Context> = {
       });
 
       return { count };
+    },
+
+    roomParticipants: async (_, { roomId }: RoomParticipantsArgs) => {
+      const room = await Room.findOne({ name: roomId });
+      if (!room) return [];
+
+      // 确保返回的参与者不会有重复
+      const uniqueParticipantsMap = new Map();
+      if (room.participants && room.participants.length > 0) {
+        room.participants.forEach(p => {
+          if (p.name) {
+            uniqueParticipantsMap.set(p.name, p);
+          }
+        });
+      }
+
+      // 转换回数组
+      return Array.from(uniqueParticipantsMap.values());
     }
   },
 
@@ -109,6 +137,19 @@ export const resolvers: IResolvers<any, Context> = {
     },
 
     joinRoom: async (_, { roomId, userName }: JoinRoomArgs) => {
+      // 首先查询房间，检查用户是否已经存在
+      const existingRoom = await Room.findOne({ name: roomId });
+
+      // 如果房间存在，检查用户是否已在参与者列表中
+      if (existingRoom && existingRoom.participants.some(p => p.name === userName)) {
+        // 用户已存在，直接返回现有房间
+        return {
+          ...existingRoom.toObject(),
+          id: existingRoom._id.toString()
+        };
+      }
+
+      // 用户不存在或房间不存在，添加用户
       const room = await Room.findOneAndUpdate(
         { name: roomId },
         {
@@ -124,7 +165,21 @@ export const resolvers: IResolvers<any, Context> = {
       };
     },
 
-    sendMessage: async (_, { roomId, content, senderName, quotedMessageId }: SendMessageArgs) => {
+    leaveRoom: async (_, { roomId, userName }: LeaveRoomArgs) => {
+      const room = await Room.findOneAndUpdate(
+        { name: roomId },
+        { $pull: { participants: { name: userName } } }
+      );
+
+      if (!room) return null;
+
+      return {
+        ...room.toObject(),
+        id: room._id.toString()
+      };
+    },
+
+    sendMessage: async (_, { roomId, content, senderName, quotedMessageId, mentions }: SendMessageArgs) => {
       // 获取引用消息
       let quotedMessage = undefined;
       if (quotedMessageId) {
@@ -145,6 +200,7 @@ export const resolvers: IResolvers<any, Context> = {
         roomId,
         timestamp: new Date(),
         readBy: [senderName],
+        mentions: mentions || [],
         quotedMessage
       });
 

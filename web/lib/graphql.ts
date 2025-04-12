@@ -85,12 +85,37 @@ export const JOIN_ROOM = gql`
   }
 `;
 
+// 离开房间
+export const LEAVE_ROOM = gql`
+  mutation LeaveRoom($roomId: String!, $userName: String!) {
+    leaveRoom(roomId: $roomId, userName: $userName) {
+      id
+      name
+      participants {
+        name
+        avatar
+      }
+    }
+  }
+`;
+
+
 // 标记消息已读
 export const MARK_AS_READ = gql`
   mutation MarkAsRead($messageId: ID!, $userName: String!) {
     markAsRead(messageId: $messageId, userName: $userName) {
       id
       readBy
+    }
+  }
+`;
+
+// 查询房间参与者
+export const GET_ROOM_PARTICIPANTS = gql`
+  query GetRoomParticipants($roomId: String!) {
+    roomParticipants(roomId: $roomId) {
+      name
+      avatar
     }
   }
 `; 

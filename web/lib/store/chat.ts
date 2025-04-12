@@ -6,6 +6,9 @@ export const unreadCountsAtom = atom<Record<string, number>>({});
 // 当前活跃房间ID原子状态
 export const currentRoomIdAtom = atom<string>('share-your-story');
 
+// 被@提及的房间ID集合原子状态
+export const mentionedRoomsAtom = atom<Set<string>>(new Set<string>());
+
 // 获取总未读消息数的派生原子状态
 export const totalUnreadCountAtom = atom((get) => {
   const unreadCounts = get(unreadCountsAtom);
@@ -13,5 +16,5 @@ export const totalUnreadCountAtom = atom((get) => {
 });
 
 // 获取指定房间未读消息数的工厂函数
-export const roomUnreadCountAtomFamily = (roomId: string) => 
+export const roomUnreadCountAtomFamily = (roomId: string) =>
   atom((get) => get(unreadCountsAtom)[roomId] || 0); 

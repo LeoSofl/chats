@@ -1,5 +1,6 @@
-import { unreadCountsAtom } from "@/lib/store/chat";
+import { mentionedRoomsAtom, unreadCountsAtom } from "@/lib/store/chat";
 import { useAtomValue } from "jotai";
+import { AtSign } from "lucide-react";
 
 // 聊天室信息 // TODO: 从后端获取
 export const ROOM_INFO = {
@@ -16,7 +17,8 @@ export interface RoomListProps {
 }
 
 export const RoomList = ({ currentRoomId, handleRoomChange }: RoomListProps) => {
-    const unreadCounts = useAtomValue(unreadCountsAtom)
+    const unreadCounts = useAtomValue(unreadCountsAtom);
+    const mentionedRooms = useAtomValue(mentionedRoomsAtom);
 
     return (
         <div className="w-[250px] border-r border-zinc-800">
@@ -32,26 +34,36 @@ export const RoomList = ({ currentRoomId, handleRoomChange }: RoomListProps) => 
 
             <div className="space-y-1 px-1">
                 {Object.entries(ROOM_INFO).map(([roomId, room]) => {
-                    // 创建对应房间的未读消息计数原子
+                    // 获取房间的未读消息计数
                     const roomUnreadCount = unreadCounts[roomId] || 0;
+                    // 检查是否有@提及
+                    const isMentioned = mentionedRooms.has(roomId);
+
                     return (
                         <button
                             key={roomId}
                             onClick={() => handleRoomChange(roomId)}
-                            className={`flex items-center px-2 py-2 rounded-md  w-full text-left ${currentRoomId === roomId
-                                ? "bg-zinc-800"
-                                : "hover:bg-zinc-800/50"
-                                }`}
+                            className={`flex items-center px-2 py-2 rounded-md w-full text-left 
+                            ${currentRoomId === roomId ? "bg-zinc-800" : "hover:bg-zinc-800/50"}
+                            ${isMentioned && currentRoomId !== roomId ? "border-l-2 border-[#04B17D]" : ""}`}
                         >
-                            <div className=" flex items-center justify-center mr-2 text-lg">
+                            <div className="flex items-center justify-center mr-2 text-lg">
                                 {roomId === 'share-your-story' ? '📝' :
                                     roomId === 'general' ? '💬' :
                                         roomId === 'design-product' ? '🎨' :
                                             roomId === 'product-team' ? '👥' : '📢'}
                             </div>
-                            <span className="text-sm">{room.name}</span>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-sm truncate">{room.name}</span>
+                                    {isMentioned && currentRoomId !== roomId && (
+                                        <AtSign className="h-3.5 w-3.5 text-[#04B17D] flex-shrink-0" />
+                                    )}
+                                </div>
+                            </div>
                             {roomUnreadCount > 0 && (
-                                <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-xs">
+                                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs
+                                ${isMentioned ? "bg-[#04B17D] text-white" : "bg-zinc-700"}`}>
                                     {roomUnreadCount > 99 ? '99+' : roomUnreadCount}
                                 </span>
                             )}

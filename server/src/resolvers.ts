@@ -55,40 +55,40 @@ export const resolvers: IResolvers<any, Context> = {
         id: room._id.toString()
       }));
     },
-    
+
     room: async (_, { name }: RoomArgs) => {
       const room = await Room.findOne({ name });
       if (!room) return null;
-      
+
       return {
         ...room.toObject(),
         id: room._id.toString()
       };
     },
-    
+
     messages: async (_, { roomId, limit = 50 }: MessagesArgs) => {
       const messages = await Message.find({ roomId })
         .sort({ timestamp: -1 })
         .limit(limit)
         .lean();
-      
+
       return messages.reverse().map(msg => ({
         ...msg,
         id: msg._id.toString(),
         timestamp: msg.timestamp.toISOString()
       }));
     },
-    
+
     unreadCount: async (_, { roomId, userName }: UnreadCountArgs) => {
       const count = await Message.countDocuments({
         roomId,
         'readBy': { $ne: userName }
       });
-      
+
       return { count };
     }
   },
-  
+
   Mutation: {
     createRoom: async (_, { name }: CreateRoomArgs) => {
       const existingRoom = await Room.findOne({ name });
@@ -98,32 +98,32 @@ export const resolvers: IResolvers<any, Context> = {
           id: existingRoom._id.toString()
         };
       }
-      
+
       const room = new Room({ name });
       await room.save();
-      
+
       return {
         ...room.toObject(),
         id: room._id.toString()
       };
     },
-    
+
     joinRoom: async (_, { roomId, userName }: JoinRoomArgs) => {
       const room = await Room.findOneAndUpdate(
         { name: roomId },
-        { 
+        {
           $addToSet: { participants: { name: userName } },
           $set: { lastActivity: new Date() }
         },
         { new: true, upsert: true }
       );
-      
+
       return {
         ...room.toObject(),
         id: room._id.toString()
       };
     },
-    
+
     sendMessage: async (_, { roomId, content, senderName, quotedMessageId }: SendMessageArgs) => {
       // 获取引用消息
       let quotedMessage = undefined;
@@ -137,7 +137,7 @@ export const resolvers: IResolvers<any, Context> = {
           };
         }
       }
-      
+
       // 创建新消息
       const message = new Message({
         content,
@@ -147,31 +147,31 @@ export const resolvers: IResolvers<any, Context> = {
         readBy: [senderName],
         quotedMessage
       });
-      
+
       await message.save();
-      
+
       // 更新房间最后活动时间
       await Room.updateOne(
         { name: roomId },
         { $set: { lastActivity: new Date() } }
       );
-      
+
       return {
         ...message.toObject(),
         id: message._id.toString(),
         timestamp: message.timestamp.toISOString()
       };
     },
-    
+
     markAsRead: async (_, { messageId, userName }: MarkAsReadArgs) => {
       const message = await Message.findByIdAndUpdate(
         messageId,
         { $addToSet: { readBy: userName } },
         { new: true }
       );
-      
+
       if (!message) return null;
-      
+
       return {
         ...message.toObject(),
         id: message._id.toString(),

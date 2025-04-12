@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export interface IMessage {
+  _id: mongoose.Types.ObjectId;
   content: string;
   sender: {
     name: string;

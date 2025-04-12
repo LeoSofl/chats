@@ -2,16 +2,6 @@
 
 import { Button } from "@/components/ui/button"
 
-export interface Message {
-  id: string
-  content: string
-  sender: {
-    name: string
-    avatar?: string
-  }
-  timestamp: string
-  isCurrentUser?: boolean
-}
 
 export default function HomePage() {
   const userName = Math.random().toString(36).substring(2, 15)

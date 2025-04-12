@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Icon, Quote, RefreshCcw, Repeat2, Search, User2 } from "lucide-react"
+import { Quote } from "lucide-react"
 import { useAtom, useAtomValue } from 'jotai'
 
 import { Button } from "@/components/ui/button"
@@ -12,21 +12,10 @@ import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
 
 // Socket.io 和 GraphQL 相关
-import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts } from "@/lib/socket"
+import { getSocket, joinRoom, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, requestUnreadCounts, getHistoryMessages, getNewMessage, Message, onReceiveNewMessage } from "@/lib/socket"
 // Jotai状态
-import { totalUnreadCountAtom, unreadCountsAtom, roomUnreadCountAtomFamily, currentRoomIdAtom } from "@/lib/store/chat"
+import { totalUnreadCountAtom, unreadCountsAtom, currentRoomIdAtom } from "@/lib/store/chat"
 
-export interface Message {
-  id: string
-  content: string
-  sender: {
-    name: string
-    avatar?: string
-  }
-  timestamp: string
-  isCurrentUser?: boolean
-  readBy?: string[]
-}
 
 // 聊天室信息
 const ROOM_INFO = {
@@ -37,21 +26,40 @@ const ROOM_INFO = {
   'announcements': { name: 'Announcements' }
 }
 
+type RoomMessages = Record<string, Message[]>
+
+// 消息时间格式化
+const formatMessageTime = (timestamp?: string): string => {
+  if (!timestamp) return '';
+  
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.getDate() === now.getDate() && 
+                  date.getMonth() === now.getMonth() && 
+                  date.getFullYear() === now.getFullYear();
+  
+  // 当天显示时间，非当天显示日期+时间
+  if (isToday) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) + ' ' + 
+           date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+};
+
 export default function CommunityPage() {
   const { slug } = useParams()
   const userName = Array.isArray(slug) ? slug[0] : slug as string
-  // 使用Jotai管理当前房间ID
+  
   const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   
-  // 每个房间的消息
-  const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
+  const [roomMessages, setRoomMessages] = useState<RoomMessages>({})
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
-  // 使用Jotai管理未读消息计数
+  
   const unreadCounts = useAtomValue(unreadCountsAtom)
   const totalUnread = useAtomValue(totalUnreadCountAtom)
 
-  // 当前房间的消息
   const messages = roomMessages[currentRoomId] || []
 
   // 切换房间
@@ -70,7 +78,7 @@ export default function CommunityPage() {
     setQuotedMessage(null)
   }
 
-  // 连接 Socket.io
+  // init socket
   useEffect(() => {
     const socket = getSocket(userName)
     
@@ -87,8 +95,8 @@ export default function CommunityPage() {
       }
     });
     
-    // 监听历史消息
-    socket.on('history_messages', (historyMessages: any[]) => {
+    // listen history messages
+    getHistoryMessages(currentRoomId, (historyMessages: Message[]) => {
       const formattedMessages = historyMessages.map(msg => ({
         ...msg,
         isCurrentUser: msg.sender.name === userName
@@ -100,9 +108,8 @@ export default function CommunityPage() {
       }))
     })
     
-    // 监听新消息
-    socket.on('receive_message', (message: any) => {
-      // 确保消息属于当前正在监听的某个房间
+    // listen new messages
+    onReceiveNewMessage(currentRoomId, (message: Message) => {
       if (message.roomId) {
         setRoomMessages(prev => ({
           ...prev,
@@ -114,6 +121,7 @@ export default function CommunityPage() {
             }
           ]
         }))
+        resetUnreadCount(message.roomId)
       }
     })
     
@@ -136,7 +144,7 @@ export default function CommunityPage() {
         name: userName,
       },
       // 如果有引用消息，添加引用消息ID
-      quotedMessageId: quotedMessage?.id
+      quotedMessageId: quotedMessage?._id
     }
     
     // 发送到服务器
@@ -250,17 +258,26 @@ export default function CommunityPage() {
               <div className="p-4">
                 <ChatMessageList>
                   {messages.map((message) => (
-                    <ChatBubble 
-                      key={message.id} 
-                      variant={message.isCurrentUser ? 'sent' : 'received'}
-                    >
+                    <div key={message._id} className={`flex flex-col gap-2 ${message.isCurrentUser ? "items-end" : "items-start"}`}>
+                      {/* <div>{message.sender.name}</div> */}
+                      <ChatBubble 
+                      
+                        variant={message.isCurrentUser ? 'sent' : 'received'}
+                      >
                       <ChatBubbleAvatar fallback={message.sender.name[0]} />
                       <ChatBubbleMessage 
                         variant={message.isCurrentUser ? 'sent' : 'received'} 
-                        className={`${message.isCurrentUser ? "bg-emerald-600 text-white ml-auto" : ""}`}
+                        className={`${message.isCurrentUser ? "bg-[#04B17D]/50 text-white ml-auto" : "bg-[#454451] text-white"}`}
                       >
-                        {message.content}
+                       
+                        <div>
+                          {message.content}
+                          {/* <div className="text-xs opacity-70 mt-1 text-right">
+                            {formatMessageTime(message.timestamp)}
+                          </div> */}
+                        </div>
                       </ChatBubbleMessage>
+                     
                       <ChatBubbleActionWrapper>
                         <ChatBubbleAction
                           className="size-6 bg-zinc-950 hover:bg-zinc-950 hover:text-zinc-400"
@@ -268,8 +285,34 @@ export default function CommunityPage() {
                           onClick={() => handleQuoteMessage(message)}
                         />
                       </ChatBubbleActionWrapper>
+
+                     
                     </ChatBubble>
-                  ))}
+                    {message.quote && (
+                      <div className={` rounded-md p-2 max-w-[400px] bg-[#35343E]/80 border-zinc-600 text-zinc-400
+                          ${message.isCurrentUser ? " border-l-2 mr-[48px]" : " border-l-2 ml-[48px]"}
+                          `}>
+                            <div className="mt-1 hidden sm:block">
+                              <Quote className="h-3 w-3" />
+                            </div>
+                            <div className="min-w-0 ">
+                              <div className="text-xs mb-1 flex items-center gap-1 truncate">
+                                <Quote className="h-2.5 w-2.5 sm:hidden inline-block flex-shrink-0" />
+                                <span className="truncate">{message.quote.sender.name}</span>
+                                {message.quote.timestamp && (
+                                  <span className="text-[10px] opacity-70">
+                                    {formatMessageTime(message.quote.timestamp)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm  opacity-80 overflow-hidden text-ellipsis">
+                                {message.quote.content}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                 </ChatMessageList>
               </div>
             </ScrollArea>

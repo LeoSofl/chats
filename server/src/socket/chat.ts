@@ -138,6 +138,7 @@ export const setupChatHandlers = (io: Server): void => {
     
     // 重置某个房间的未读计数
     socket.on('reset_unread_count', async (roomId: string) => {
+      console.log('reset_unread_count', roomId, userName)
       // 标记该房间所有消息为已读
       await Message.updateMany(
         { roomId, readBy: { $nin: [userName] } },
@@ -199,7 +200,6 @@ export const setupChatHandlers = (io: Server): void => {
           if (!roomState.notificationsOnly) {
             io.to(socketId).emit('receive_message', {
               ...savedMessage.toObject(),
-              id: savedMessage._id.toString()
             });
           } 
           // 通知消息发送给通知模式的用户

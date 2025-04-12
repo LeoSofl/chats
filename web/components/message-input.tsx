@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent } from "react"
 import { Send, Paperclip, Smile, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Message } from "@/app/[slug]/page"
+import { Message } from "@/lib/socket"
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void

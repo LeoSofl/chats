@@ -4,6 +4,28 @@ import { unreadCountsAtom } from './store/chat';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
+export interface Message {
+  _id?: string
+  content: string
+  sender: {
+    name: string
+    avatar?: string
+  }
+  timestamp?: string
+  isCurrentUser?: boolean
+  readBy?: string[]
+  roomId: string
+  quote?: {
+    messageId: string;
+    content: string; // why content? speed up the query and if the message is deleted, the quote will not be deleted
+    sender: {
+      name: string;
+      avatar?: string;
+    };  
+    timestamp: string;
+  };
+}
+
 let socket: Socket | null = null;
 // Jotai 默认 store
 const jotaiStore = getDefaultStore();
@@ -65,6 +87,24 @@ export const joinRoom = (roomId: string, options?: { fullHistory?: boolean, noti
   }
 };
 
+export const getHistoryMessages = (roomId: string, callback: (messages: Message[]) => void): void => {
+  if (socket) {
+    socket.on('history_messages', (messages: Message[]) => {
+      callback(messages);
+    });
+  }
+};
+
+export const onReceiveNewMessage = (roomId: string, callback: (message: Message) => void): void => {
+  if (socket) {
+    socket.on('receive_message', (message: Message) => {
+      if (message?.roomId === roomId) {
+        callback(message);
+      }
+    });
+  }
+};
+
 // 更改房间模式
 export const changeRoomMode = (roomId: string, options: { fullHistory?: boolean, notificationsOnly?: boolean }): void => {
   if (socket) {
@@ -93,15 +133,7 @@ export const resetUnreadCount = (roomId: string): void => {
 };
 
 // 消息相关功能
-export const sendMessage = (data: {
-  roomId: string;
-  content: string;
-  sender: {
-    name: string;
-    avatar?: string;
-  };
-  quotedMessageId?: string;
-}): void => {
+export const sendMessage = (data: Message & { quotedMessageId?: string }): void => {
   if (socket) {
     socket.emit('send_message', data);
   }

@@ -1,16 +1,24 @@
 "use client"
 
 import { useState, type KeyboardEvent } from "react"
-import { Send, Paperclip, Smile } from "lucide-react"
+import { Send, Paperclip, Smile, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Message } from "@/app/[slug]/page"
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void
   isMobile?: boolean
+  quotedMessage?: Message | null
+  onCancelQuote?: () => void
 }
 
-export function MessageInput({ onSendMessage, isMobile = false }: MessageInputProps) {
+export function MessageInput({ 
+  onSendMessage, 
+  isMobile = false, 
+  quotedMessage = null, 
+  onCancelQuote 
+}: MessageInputProps) {
   const [message, setMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
 
@@ -30,7 +38,27 @@ export function MessageInput({ onSendMessage, isMobile = false }: MessageInputPr
   }
 
   return (
-    <div className={`${isMobile ? "" : "p-4 border-t border-zinc-800"} h-[5rem]`}>
+    <div className={`${isMobile ? "" : ""} h-auto`}>
+      {quotedMessage && (
+        <div className="bg-zinc-800/50 p-2 mb-2 rounded-md flex justify-between items-start">
+          <div className="flex-1">
+            <div className="text-xs text-zinc-400">
+              回复 {quotedMessage.sender.name}
+            </div>
+            <div className="text-sm text-zinc-300 line-clamp-1">
+              {quotedMessage.content}
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 p-1 text-zinc-400 hover:text-zinc-300"
+            onClick={onCancelQuote}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800">
           <Paperclip className="h-5 w-5" />
@@ -44,7 +72,7 @@ export function MessageInput({ onSendMessage, isMobile = false }: MessageInputPr
               setIsTyping(e.target.value.length > 0)
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder={quotedMessage ? "输入回复..." : "输入消息..."}
             className="pr-10 bg-zinc-900 border-zinc-800 text-white focus-visible:ring-emerald-500/30"
           />
           <Button

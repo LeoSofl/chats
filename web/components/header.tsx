@@ -1,4 +1,4 @@
-import { Bell, Globe, HelpCircle, Search } from "lucide-react"
+import { Bell, Globe, HelpCircle, Search, Zap } from "lucide-react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -6,7 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 export const Header = () => {
     return (
         <header className="flex h-[5rem] items-center justify-between p-4 border-b border-zinc-800">
-            <h1 className="text-xl font-semibold">Gradual Community</h1>
+            <div className="p-4 flex items-center gap-3 border-zinc-800">
+                <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center">
+                    <Zap className="h-6 w-6 text-white" />
+                </div>
+                <span className="font-semibold text-white hidden md:block">Gradual Community</span>
+            </div>
+            {/* <h1 className="text-xl font-semibold">Gradual Community</h1> */}
             <div className="flex items-center gap-4">
                 <div className="relative w-64">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-zinc-400" />

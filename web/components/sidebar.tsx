@@ -5,12 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 export function Sidebar() {
   return (
     <div className="w-[70px] md:w-[230px] h-full bg-zinc-950 border-r border-zinc-800 flex flex-col">
-      <div className="p-4 flex items-center gap-3 border-b border-zinc-800">
-        <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center">
-          <Zap className="h-6 w-6 text-white" />
-        </div>
-        <span className="font-semibold text-white hidden md:block">Gradual Community</span>
-      </div>
+
 
       <div className="p-2 flex-1 overflow-y-auto">
         <div className="mb-6">

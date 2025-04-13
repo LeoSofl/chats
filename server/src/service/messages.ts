@@ -15,18 +15,36 @@ export const getRoomMessages = async ({ roomId, limit = 50, offset = 0 }: getRoo
     return messages.reverse()
 }
 
+export interface getMessageArgs {
+    messageId: string;
+}
+export const getMessage = async ({ messageId }: getMessageArgs) => {
+    const message = await Message.findById(messageId);
+    return message;
+}
+
 
 type addMessageArgs = Omit<IMessage, '_id'>;
 export const addMessage = async (message: addMessageArgs) => {
-    const newMessage = await Message.create(message);
-    return newMessage;
+    try {
+        const newMessage = await Message.create(message);
+        return newMessage;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export interface deleteMessageArgs {
     messageId: string;
 }
 export const deleteMessage = async ({ messageId }: deleteMessageArgs) => {
-    const result = await Message.deleteOne({ _id: messageId });
-    return result.deletedCount;
+    try {
+        const result = await Message.deleteOne({ _id: messageId });
+        return result.deletedCount;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 

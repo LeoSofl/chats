@@ -1,6 +1,6 @@
 import { IMentions, Mentions } from "../models/Metions";
 
-export type addOrUpdateMentionArgs = Omit<IMentions, '_id'>;
+export type addOrUpdateMentionArgs = Partial<Omit<IMentions, '_id'>>;
 
 export const addOrUpdateMention = async (mention: addOrUpdateMentionArgs) => {
     const filter = {
@@ -12,10 +12,15 @@ export const addOrUpdateMention = async (mention: addOrUpdateMentionArgs) => {
         $set: mention
     };
 
-    const newMention = await Mentions.updateOne(filter, update, { upsert: true });
-    return {
-        upsertedId: newMention.upsertedId,
-        modifiedCount: newMention.modifiedCount,
+    try {
+        const newMention = await Mentions.updateOne(filter, update, { upsert: true });
+        return {
+            upsertedId: newMention.upsertedId,
+            modifiedCount: newMention.modifiedCount,
+        }
+    } catch (error) {
+        console.error(error);
+        return null;
     }
 }
 
@@ -25,8 +30,13 @@ export interface deleteMentionArgs {
 }
 
 export const deleteMention = async ({ roomId, mentionedUser }: deleteMentionArgs) => {
-    const result = await Mentions.deleteOne({ roomId, mentionedUser });
-    return result.deletedCount;
+    try {
+        const result = await Mentions.deleteOne({ roomId, mentionedUser });
+        return result.deletedCount;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export interface getMentionsArgs {
@@ -35,16 +45,26 @@ export interface getMentionsArgs {
 }
 
 export const getMentions = async ({ roomId, mentionedUser }: getMentionsArgs) => {
-    const mentions = await Mentions.find({ roomId, mentionedUser });
-    return mentions;
+    try {
+        const mentions = await Mentions.find({ roomId, mentionedUser });
+        return mentions;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export interface getUserUnreadMentionsArgs {
     userId: string;
 }
 export const getUserUnreadMentions = async ({ userId }: getUserUnreadMentionsArgs) => {
-    const mentions = await Mentions.find({ mentionedUser: userId, isRead: false });
-    return mentions;
+    try {
+        const mentions = await Mentions.find({ mentionedUser: userId, isRead: false });
+        return mentions;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export interface setUserMentionAsReadArgs {
@@ -52,8 +72,13 @@ export interface setUserMentionAsReadArgs {
     roomId: string;
 }
 export const setUserMentionAsRead = async ({ userId, roomId }: setUserMentionAsReadArgs) => {
-    const result = await Mentions.updateMany({ mentionedUser: userId, roomId }, { $set: { isRead: true } });
-    return result.modifiedCount;
+    try {
+        const result = await Mentions.updateMany({ mentionedUser: userId, roomId }, { $set: { isRead: true } });
+        return result.modifiedCount;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 

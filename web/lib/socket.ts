@@ -163,9 +163,3 @@ export const sendMessage = (data: Message & { quotedMessageId?: string, mentions
     socket.emit('send_message', data);
   }
 };
-
-export const markMessageAsRead = (messageId: string, userName: string): void => {
-  if (socket) {
-    socket.emit('mark_as_read', { messageId, userName });
-  }
-};

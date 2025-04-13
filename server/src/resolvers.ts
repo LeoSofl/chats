@@ -1,8 +1,9 @@
 import { IResolvers } from '@graphql-tools/utils';
 import { addMessage, deleteMessage, getRoomMessages } from './service/messages';
-import { addRoom, addRoomParticipant, deleteRoom, deleteRoomParticipant, getRoom, getRoomParticipants } from './service/room';
+import { addOrUpdateRoom, deleteRoom, getRoom } from './service/room';
 import { addOrUpdateUnreadCount, deleteUnreadCount, getUnreadCountsForUser } from './service/unread';
 import { addOrUpdateMention, deleteMention, getUserUnreadMentions, setUserMentionAsRead } from './service/metions';
+import { addOrUpdateUserRoom, deleteUserRoom, getRoomUsers } from './service/UserRoom';
 
 // 定义 Resolver 上下文
 interface Context {
@@ -14,7 +15,7 @@ export const resolvers: IResolvers<any, Context> = {
   Query: {
     room: getRoom,
     roomMessages: getRoomMessages,
-    roomParticipants: getRoomParticipants,
+    roomParticipants: getRoomUsers,
 
     userUnreads: getUnreadCountsForUser,
 
@@ -22,10 +23,10 @@ export const resolvers: IResolvers<any, Context> = {
   },
 
   Mutation: {
-    createRoom: addRoom,
+    createRoom: addOrUpdateRoom,
     deleteRoom: deleteRoom,
-    addRoomParticipant: addRoomParticipant,
-    deleteRoomParticipant: deleteRoomParticipant,
+    addRoomParticipant: addOrUpdateUserRoom,
+    deleteRoomParticipant: deleteUserRoom,
 
     createUnread: addOrUpdateUnreadCount,
     deleteUnread: deleteUnreadCount,

@@ -1,6 +1,8 @@
 import { gql } from 'apollo-server-express';
 
 export const typeDefs = gql`
+  scalar Void
+
   type User {
     name: String!
     avatar: String
@@ -34,12 +36,12 @@ export const typeDefs = gql`
   type Mention {
     _id: ID!
     roomId: String!
-    messageId: ID!  
-    mentionedUser: String;             
-    mentioningUser: String;             
-    timestamp: Date;                   
-    content: String;                    
-    isRead: boolean;                    
+    messageId: ID!
+    mentionedUser: String
+    mentioningUser: String
+    timestamp: String
+    content: String
+    isRead: Boolean
   }
 
   type Unread {
@@ -51,22 +53,34 @@ export const typeDefs = gql`
     firstUnreadMessageId: ID
   }
 
+  type UserRoom {
+    _id: ID!
+    userId: String!
+    roomId: String!
+    receiveStatus: String!
+    lastActivity: String
+    createdAt: String
+    updatedAt: String
+  }
+
   type Query {
     room(name: String!): Room!
     roomMessages(roomId: String!, limit: Int, offset: Int): [Message!]!
-    roomParticipants(roomId: String!): [String!]!
+    roomParticipants(roomId: String!): [UserRoom!]!
 
     userUnreads(userId: String!): [Unread!]!
     userUnreadMentions(userId: String!): [Mention!]!
   }
 
+
+
   type Mutation {
     createRoom(name: String!): Room!
     deleteRoom(name: String!): Int!
-    addRoomParticipant(roomId: String!, participantName: String!): Room!
-    deleteRoomParticipant(roomId: String!, participantName: String!): Room!
+    addRoomParticipant(roomId: String!, participantName: String!, receiveStatus: String!): Void
+    deleteRoomParticipant(roomId: String!, participantName: String!): Int!
 
-    createUnread(userId: String!, roomId: String!): UnreadCount!
+    createUnread(userId: String!, roomId: String!): Unread!
     deleteUnread(userId: String!, roomId: String!): Int!
 
     createMention(roomId: String!, messageId: ID!, mentionedUser: String!, mentioningUser: String!, content: String!): Mention!

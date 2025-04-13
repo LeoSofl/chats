@@ -10,48 +10,30 @@ export const getRoom = async ({ name }: getRoomArgs) => {
 
 export interface addRoomArgs {
     name: string;
+    lastActivity?: Date;
 }
-export const addRoom = async ({ name }: addRoomArgs) => {
-    const room = await Room.create({ name, participants: [] });
-    return room;
+export const addOrUpdateRoom = async ({ name, lastActivity }: addRoomArgs) => {
+    try {
+        const room = await Room.updateOne({ name }, { $set: { lastActivity } }, { upsert: true });
+        return {
+            upsertedId: room.upsertedId,
+            modifiedCount: room.modifiedCount,
+        }
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export interface deleteRoomArgs {
     name: string;
 }
 export const deleteRoom = async ({ name }: deleteRoomArgs) => {
-    const result = await Room.deleteOne({ name });
-    return result.deletedCount;
-}
-export interface addRoomParticipantArgs {
-    roomId: string;
-    participantName: string;
-}
-
-export const addRoomParticipant = async ({ roomId, participantName }: addRoomParticipantArgs) => {
-    const room = await Room.findOne({ name: roomId });
-    if (!room) return;
-    room.participants.push(participantName);
-    await room.save();
-}
-
-export interface getRoomParticipantsArgs {
-    roomId: string;
-}
-export const getRoomParticipants = async ({ roomId }: getRoomParticipantsArgs) => {
-    const room = await Room.findOne({ name: roomId });
-    if (!room) return [];
-    return room?.participants ?? [];
-}
-
-export interface deleteRoomParticipantArgs {
-    roomId: string;
-    participantName: string;
-}
-
-export const deleteRoomParticipant = async ({ roomId, participantName }: deleteRoomParticipantArgs) => {
-    const room = await Room.findOne({ name: roomId });
-    if (!room) return;
-    room.participants = room.participants.filter(p => p !== participantName);
-    return await room.save();
+    try {
+        const result = await Room.deleteOne({ name });
+        return result.deletedCount;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }

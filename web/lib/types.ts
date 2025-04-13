@@ -7,7 +7,6 @@ export interface Message {
     }
     timestamp?: string
     isCurrentUser?: boolean
-    readBy?: string[]
     mentions?: string[]
     roomId: string
     quote?: {
@@ -21,7 +20,7 @@ export interface Message {
     };
 }
 
-export interface Mentions {
+export interface Mention {
     _id: string;
     roomId: string;
     messageId: string;  // 引用原消息
@@ -39,4 +38,20 @@ export interface UnreadCounter {
     count: number;                      // 未读数量
     lastReadTimestamp: Date;            // 最后阅读时间
     firstUnreadMessageId?: string; // 第一条未读消息ID
+}
+
+export interface Room {
+    _id: string;
+    name: string;
+    lastActivity: Date;
+}
+
+export interface UserRoom {
+    _id: string;
+    userId: string;
+    roomId: string;
+    lastActivity: Date;
+    receiveStatus: 'all' | 'notice' | 'none';
+    updatedAt: Date;
+    createdAt: Date;
 }

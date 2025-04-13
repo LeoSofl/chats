@@ -1,4 +1,4 @@
-import { mentionedRoomsAtom, UnreadCountsAtom } from "@/lib/store/chat";
+import { UnreadCountsAtom, MentionsAtom } from "@/lib/store/chat";
 import { useAtomValue } from "jotai";
 import { AtSign } from "lucide-react";
 
@@ -18,7 +18,7 @@ export interface RoomListProps {
 
 export const RoomList = ({ currentRoomId, handleRoomChange }: RoomListProps) => {
     const unreadCounts = useAtomValue(UnreadCountsAtom);
-    const mentionedRooms = useAtomValue(mentionedRoomsAtom);
+    const mentions = useAtomValue(MentionsAtom);
 
     return (
         <div className="w-[250px] border-r border-zinc-800">
@@ -35,9 +35,9 @@ export const RoomList = ({ currentRoomId, handleRoomChange }: RoomListProps) => 
             <div className="space-y-1 px-1">
                 {Object.entries(ROOM_INFO).map(([roomId, room]) => {
                     // 获取房间的未读消息计数
-                    const roomUnreadCount = unreadCounts[roomId] || 0;
+                    const roomUnreadCount = unreadCounts.find(count => count.roomId === roomId)?.count || 0;
                     // 检查是否有@提及
-                    const isMentioned = mentionedRooms.has(roomId);
+                    const isMentioned = mentions.some(mention => mention.roomId === roomId);
 
                     return (
                         <button

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { GET_ROOM_PARTICIPANTS } from '@/lib/graphql';
 import { client } from '@/lib/apollo';
+import { UserRoom } from '@/lib/types';
 
 interface Participant {
     id: string;
@@ -34,12 +35,10 @@ export function useRoomParticipants(
                     variables: { roomId },
                     fetchPolicy: 'network-only'
                 });
-
-                if (data?.roomParticipants) {
-                    return data.roomParticipants?.filter((p: { name: string; avatar?: string }) => p.name !== userName).map((p: { name: string; avatar?: string }) => ({
-                        id: p.name,
-                        name: p.name,
-                        avatar: p.avatar
+                if (data?.roomParticipants as UserRoom) {
+                    return data.roomParticipants?.filter((p: { userId: string; }) => p.userId !== userName).map((p: { userId: string; }) => ({
+                        id: p.userId,
+                        name: p.userId,
                     }));
                 }
                 return [];

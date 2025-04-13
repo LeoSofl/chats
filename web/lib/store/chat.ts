@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { UnreadCounter, Mentions, Message } from '../types';
+import { UnreadCounter, Message, Mention } from '../types';
 
 // 房间消息原子状态
 export const RoomMessagesAtom = atom<Record<string, Message[]>>({});
@@ -21,7 +21,7 @@ export const CurrentRoomIdAtom = atom<string>('share-your-story');
 
 
 
-export const MentionsAtom = atom<Mentions[]>([]);
+export const MentionsAtom = atom<Mention[]>([]);
 
 export const UserMentionsAtom = atom((get) => {
   const mentions = get(MentionsAtom);

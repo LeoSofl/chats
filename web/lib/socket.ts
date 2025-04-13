@@ -1,8 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 import { getDefaultStore } from 'jotai';
-import { RoomMessagesAtom, UnreadCountsAtom } from './store/chat';
+import { MentionsAtom, RoomMessagesAtom, UnreadCountsAtom } from './store/chat';
 import { ROOM_INFO } from '@/components/room-list';
-import { Message } from './types';
+import { Mention, Message, UnreadCounter } from './types';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
@@ -33,46 +33,12 @@ export const getSocket = (userName: string, currentRoomId: string): Socket => {
       console.error('Connection error:', error);
     });
 
-    // 添加未读消息通知处理
-    socket.on('message_notification', (notification: { roomId: string }) => {
-      // 使用 Jotai 更新未读消息计数
-      // fetch unread counts
-      // jotaiStore.set(UnreadCountsAtom, prev => {
-      //   const newCounts = { ...prev };
-      //   newCounts[notification.roomId] = (newCounts[notification.roomId] || 0) + 1;
-      //   return newCounts;
-      // });
-    });
-
-    // 接收所有房间的未读消息计数
-    socket.on('unread_counts', (counts: Record<string, number>) => {
-      // 使用 Jotai 设置未读消息计数
-      // jotaiStore.set(UnreadCountsAtom, counts);
-    });
-
-    // socket.on('history_messages', (messages: Message[]) => {
-    //   const formattedMessages = messages.map(msg => ({
-    //     ...msg,
-    //     isCurrentUser: msg.sender.name === userName
-    //   }))
-
-    //   const roomId = messages?.[0]?.roomId;
-    //   jotaiStore.set(RoomMessagesAtom, prev => ({
-    //     ...prev,
-    //     [roomId]: formattedMessages
-    //   }));
-    //   resetUnreadCount(roomId);
-    // });
-
     socket.on('receive_message', (message: Message) => {
-      console.log("receive_message", message)
-
       const roomId = message.roomId;
       jotaiStore.set(RoomMessagesAtom, prev => ({
         ...prev,
         [roomId]: [...(prev[roomId] || []), { ...message, isCurrentUser: message.sender.name === userName }]
       }));
-      resetUnreadCount(roomId);
     });
 
     // 加入其他房间但设置为仅通知模式
@@ -86,17 +52,13 @@ export const getSocket = (userName: string, currentRoomId: string): Socket => {
     });
   }
 
-  socket.on('mention_notification', (data: {
-    roomId: string,
-    messageId: string,
-    sender: { name: string, avatar?: string },
-    content: string
-  }) => {
-    // jotaiStore.set(mentionedRoomsAtom, prev => {
-    //   const newSet = new Set(prev);
-    //   newSet.add(data.roomId);
-    //   return newSet;
-    // });
+  // 添加未读消息通知处理
+  socket.on('message_notification', (notification: UnreadCounter[]) => {
+    jotaiStore.set(UnreadCountsAtom, notification);
+  });
+
+  socket.on('mention_notification', (data: Mention[]) => {
+    jotaiStore.set(MentionsAtom, data);
   });
 
   return socket;
@@ -104,15 +66,11 @@ export const getSocket = (userName: string, currentRoomId: string): Socket => {
 
 export const closeSocket = (): void => {
   if (socket) {
-    socket.off('history_messages')
     socket.off('receive_message')
-    socket.off('mention_notification')
     socket.off('message_notification')
-    socket.off('unread_counts')
+    socket.off('mention_notification')
     socket.disconnect();
     socket = null;
-    // 重置未读消息计数
-    jotaiStore.set(UnreadCountsAtom, {});
   }
 };
 
@@ -130,36 +88,22 @@ export const leaveRoom = (roomId: string): void => {
   }
 };
 
-// 更改房间模式
-export const changeRoomMode = (roomId: string, options: { fullHistory?: boolean, notificationsOnly?: boolean }): void => {
-  if (socket) {
-    socket.emit('change_room_mode', { roomId, ...options });
-  }
-};
-
-// 获取所有房间的未读消息计数
-export const requestUnreadCounts = (): void => {
-  if (socket) {
-    socket.emit('get_unread_counts');
-  }
-};
-
-// 重置某个房间的未读计数
-export const resetUnreadCount = (roomId: string): void => {
-  if (socket) {
-    socket.emit('reset_unread_count', roomId);
-    // 本地也更新 Jotai 状态
-    jotaiStore.set(UnreadCountsAtom, prev => {
-      const newCounts = { ...prev };
-      newCounts[roomId] = 0;
-      return newCounts;
-    });
-  }
-};
 
 // 消息相关功能
 export const sendMessage = (data: Message & { quotedMessageId?: string, mentions?: string[] }): void => {
   if (socket) {
     socket.emit('send_message', data);
+  }
+};
+
+export const resetUserUnread = (roomId: string, userId: string): void => {
+  if (socket) {
+    socket.emit('reset_user_unread', { roomId, userId });
+  }
+};
+
+export const setUserMentionAsRead = (roomId: string, userId: string): void => {
+  if (socket) {
+    socket.emit('set_user_mention_as_read', { roomId, userId });
   }
 };

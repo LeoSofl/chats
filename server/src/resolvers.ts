@@ -13,29 +13,30 @@ interface Context {
 // 定义解析器
 export const resolvers: IResolvers<any, Context> = {
   Query: {
-    room: getRoom,
-    roomMessages: getRoomMessages,
-    roomParticipants: getRoomUsers,
+    // room: getRoom,
+    roomMessages: async (_, { roomId, limit = 50, offset = 0 }) => await getRoomMessages({ roomId, limit, offset }),
+    roomParticipants: async (_, { roomId }) => await getRoomUsers(roomId),
 
-    userUnreads: getUnreadCountsForUser,
+    userUnreads: async (_, { userId }) => await getUnreadCountsForUser(userId),
 
-    userUnreadMentions: getUserUnreadMentions,
+    userUnreadMentions: async (_, { userId }) => await getUserUnreadMentions(userId),
   },
 
   Mutation: {
-    createRoom: addOrUpdateRoom,
-    deleteRoom: deleteRoom,
-    addRoomParticipant: addOrUpdateUserRoom,
-    deleteRoomParticipant: deleteUserRoom,
+    // createRoom: addOrUpdateRoom,
+    // deleteRoom: deleteRoom,
+    addRoomParticipant: async (_, { userId, roomId, receiveStatus }) => await addOrUpdateUserRoom({ userId, roomId, receiveStatus }),
+    updateRoomParticipant: async (_, { userId, roomId, receiveStatus }) => await addOrUpdateUserRoom({ userId, roomId, receiveStatus }),
+    deleteRoomParticipant: async (_, { userId, roomId }) => await deleteUserRoom({ userId, roomId }),
 
-    createUnread: addOrUpdateUnreadCount,
-    deleteUnread: deleteUnreadCount,
+    // createUnread: addOrUpdateUnreadCount,
+    deleteUnread: async (_, { userId, roomId }) => await deleteUnreadCount({ userId, roomId }),
 
-    createMention: addOrUpdateMention,
-    deleteMention: deleteMention,
-    setUserMentionAsRead: setUserMentionAsRead,
+    // createMention: addOrUpdateMention,
+    // deleteMention: deleteMention,
+    setUserMentionAsRead: async (_, { userId, roomId }) => await setUserMentionAsRead({ userId, roomId }),
 
-    createMessage: addMessage,
-    deleteMessage: deleteMessage,
+    // createMessage: addMessage,
+    // deleteMessage: deleteMessage,
   }
 }; 

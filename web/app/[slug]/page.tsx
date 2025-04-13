@@ -8,13 +8,15 @@ import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
-import { getSocket, sendMessage, closeSocket, changeRoomMode, resetUnreadCount } from "@/lib/socket"
+import { getSocket, sendMessage, closeSocket, setUserMentionAsRead, resetUserUnread } from "@/lib/socket"
 import { CurrentRoomIdAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "../../components/room-list"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
 import { useRoomMessages } from "@/hooks/useRoomMessages"
 import { Message } from "@/lib/types"
+import { useMutation } from "@apollo/client/react/hooks"
+import { UPDATE_ROOM_PARTICIPANT } from "@/lib/graphql"
 
 export default function CommunityPage() {
   const { slug } = useParams()
@@ -45,17 +47,32 @@ export default function CommunityPage() {
     userName,
   });
 
+  const [updateRoomParticipant] = useMutation(UPDATE_ROOM_PARTICIPANT);
 
   // 切换房间
   const handleRoomChange = (roomId: string) => {
     // 将之前的房间切换为仅通知模式
     if (currentRoomId) {
-      changeRoomMode(currentRoomId, { notificationsOnly: true });
+      // changeRoomMode(currentRoomId, { notificationsOnly: true });
+      updateRoomParticipant({
+        variables: {
+          userId: userName,
+          roomId: currentRoomId,
+          receiveStatus: 'notice'
+        }
+      })
     }
     // 将新房间切换为完整模式
-    changeRoomMode(roomId, { fullHistory: true });
+    updateRoomParticipant({
+      variables: {
+        userId: userName,
+        roomId: roomId,
+        receiveStatus: 'all'
+      }
+    })
+    resetUserUnread(roomId, userName)
+    setUserMentionAsRead(roomId, userName)
     setCurrentRoomId(roomId)
-    resetUnreadCount(roomId);
     setQuotedMessage(null)
   }
 

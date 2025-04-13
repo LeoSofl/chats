@@ -2,10 +2,10 @@ import { Server, Socket } from 'socket.io';
 import { IMessage } from '../models/Message';
 import mongoose from 'mongoose';
 import { addOrUpdateRoom } from '../service/room';
-import { incrementUnreadCount } from '../service/unread';
+import { incrementUnreadCount, getUnreadCountsForUser, addOrUpdateUnreadCount, deleteUnreadCount } from '../service/unread';
 import { addOrUpdateUserRoom, deleteUserRoom, deleteUserRooms, getRoomUsers, getUserRoom } from '../service/UserRoom';
 import { addMessage, getMessage } from '../service/messages';
-import { addOrUpdateMention } from '../service/metions';
+import { addOrUpdateMention, getUserUnreadMentions, setUserMentionAsRead } from '../service/metions';
 
 
 export const setupChatHandlers = (io: Server): void => {
@@ -14,32 +14,28 @@ export const setupChatHandlers = (io: Server): void => {
 
     const userName = socket.handshake.auth.userName || 'Anonymous';
 
-    // // 初始化用户连接状态
-    // userConnections.set(socket.id, {
-    //   userName,
-    //   rooms: new Map()
-    // });
 
     // 加入房间
     socket.on('join_room', async (data: { roomId: string, options?: { fullHistory?: boolean, notificationsOnly?: boolean } }) => {
       const { roomId, options = {} } = data;
       socket.join(roomId);
-      console.log(`User ${userName} joined room ${roomId} with options:`, options);
+      // console.log(`User ${userName} joined room ${roomId} with options:`, options);
       // 保存用户房间模式状态
 
       const existingUserRoom = await getUserRoom({ userId: userName, roomId });
       if (!existingUserRoom) {
         // 如果房间不存在，创建房间
-        await addOrUpdateUserRoom({ userId: userName, roomId, receiveStatus: 'notice' });
+        await addOrUpdateUserRoom({ userId: userName, roomId, receiveStatus: options.fullHistory ? 'all' : 'notice', socketId: socket.id });
       }
+      // 发送房间未读@消息计数
+      const unreadMentions = await getUserUnreadMentions({ userId: userName });
+      socket.emit('mention_notification', unreadMentions);
 
-      // // 发送未读消息计数
-      // const unreadCounts = await getUnreadCountsForUser({ userId: userName });
-      // socket.emit('unread_counts', unreadCounts);
+      // 发送房间未读消息计数
+      const unreadCounts = await getUnreadCountsForUser({ userId: userName });
+      socket.emit('message_notification', unreadCounts);
 
-      // // 发送房间参与者
-      const participants = await getRoomUsers(roomId);
-      socket.emit('participants', participants);
+
     });
 
     // 离开房间
@@ -52,49 +48,13 @@ export const setupChatHandlers = (io: Server): void => {
       await deleteUserRoom({ userId: userName, roomId });
     });
 
-    // // 更改房间模式
-    // socket.on('change_room_mode', async (data: { roomId: string, fullHistory?: boolean, notificationsOnly?: boolean }) => {
-    //   const { roomId, fullHistory, notificationsOnly } = data;
-
-    //   // 更新用户房间模式状态
-    //   const userRoom = await getUserRoom({ userId: userName, roomId });
-    //   if (userRoom) {
-    //     if (fullHistory) {
-    //       await addOrUpdateUserRoom({ userId: userName, roomId, receiveStatus: 'all' });
-    //     } else if (notificationsOnly) {
-    //       await addOrUpdateUserRoom({ userId: userName, roomId, receiveStatus: 'notice' });
-    //     } else {
-    //       await addOrUpdateUserRoom({ userId: userName, roomId, receiveStatus: 'none' });
-    //     }
-    //   }
-    // });
-
-    // // 获取所有房间的未读消息计数
-    // socket.on('get_unread_counts', async () => {
-    //   const unreadCounts = await getUnreadCountsForUser({ userId: userName });
-    //   socket.emit('unread_counts', unreadCounts);
-    // });
-
-    // // 重置某个房间的未读计数
-    // socket.on('reset_unread_count', async (roomId: string) => {
-    //   // 标记该房间所有消息为已读
-    //   await Message.updateMany(
-    //     { roomId, readBy: { $nin: [userName] } },
-    //     { $addToSet: { readBy: userName } }
-    //   );
-
-    //   // 发送更新后的未读消息计数
-    //   const unreadCounts = await getUnreadCountsForUser(userName);
-    //   socket.emit('unread_counts', unreadCounts);
-    // });
 
     // 发送消息
-    socket.on('send_message', async (data: IMessage & { quotedMessageId?: string, mentions?: string[] }) => {
+    socket.on('send_message', async (data: IMessage & { quotedMessageId?: string }) => {
       const messageData: IMessage = {
         ...data,
         timestamp: new Date(),
         readBy: [data.sender.name],
-        mentions: data.mentions || []
       };
 
       // 如果有引用消息ID，获取引用消息详情
@@ -125,36 +85,31 @@ export const setupChatHandlers = (io: Server): void => {
 
       // 向不同套接字发送不同类型的消息
       for (const roomSocket of roomSockets) {
-        const socketId = roomSocket.id;
-        const userRoom = await getUserRoom({ userId: userName, roomId: data.roomId });
-
-        if (userRoom) {
+        const userSocketId = roomSocket.id;
+        const roomUsers = await getRoomUsers(data.roomId);
+        if (roomUsers) {
+          const currentUserRoom = roomUsers.find(user => user.socketId === userSocketId);
+          const curReceiveStatus = currentUserRoom?.receiveStatus;
+          const curUserId = currentUserRoom?.userId;
           // 完整消息发送给不是通知模式的用户
-          if (userRoom.receiveStatus === 'all') {
-            io.to(socketId).emit('receive_message', {
+          if (curReceiveStatus === 'all') {
+            io.to(userSocketId).emit('receive_message', {
               ...savedMessage?.toObject(),
             });
           }
           // 通知消息发送给通知模式的用户
-          else if (userRoom.receiveStatus === 'notice') {
+          else if (curReceiveStatus === 'notice') {
             await incrementUnreadCount({ roomId: data.roomId, messageId: savedMessage?._id.toString() ?? '', excludeUserId: userName });
-            io.to(socketId).emit('message_notification', {
-              roomId: data.roomId,
-              messageId: savedMessage?._id.toString(),
-              sender: data.sender
-            });
+            const unreadCount = await getUnreadCountsForUser({ userId: curUserId ?? '' });
+            io.to(userSocketId).emit('message_notification', unreadCount);
 
             // 如果用户被@了，发送特殊通知
-            if (userName && messageData.mentions?.includes(userName)) {
+            if (messageData.mentions?.includes(curUserId ?? '')) {
               for (const mentionedUser of messageData.mentions) {
-                await addOrUpdateMention({ roomId: data.roomId, messageId: savedMessage?._id.toString() ?? '', mentionedUser: mentionedUser, mentioningUser: userName, content: messageData.content });
+                await addOrUpdateMention({ roomId: data.roomId, messageId: savedMessage?._id.toString() ?? '', mentionedUser: mentionedUser, mentioningUser: userName, content: messageData.content, isRead: false });
               }
-              io.to(socketId).emit('mention_notification', {
-                roomId: data.roomId,
-                messageId: savedMessage?._id.toString(),
-                sender: data.sender,
-                content: messageData.content
-              });
+              const unreadMentions = await getUserUnreadMentions({ userId: curUserId ?? '' });
+              io.to(userSocketId).emit('mention_notification', unreadMentions);
             }
           }
         }
@@ -162,16 +117,20 @@ export const setupChatHandlers = (io: Server): void => {
     });
 
     // // 标记消息已读
-    // socket.on('mark_as_read', async ({ messageId, userName }: { messageId: string, userName: string }) => {
-    //   await Message.updateOne(
-    //     { _id: messageId },
-    //     { $addToSet: { readBy: userName } }
-    //   );
+    socket.on('reset_user_unread', async ({ roomId, userId }: { roomId: string, userId: string }) => {
+      await deleteUnreadCount({ userId, roomId });
 
-    //   // 更新未读消息计数
-    //   const unreadCounts = await getUnreadCountsForUser({ userId: userName });
-    //   socket.emit('unread_counts', unreadCounts);
-    // });
+      const unreadCounts = await getUnreadCountsForUser({ userId: userId });
+      socket.emit('message_notification', unreadCounts);
+    });
+
+    socket.on('set_user_mention_as_read', async ({ roomId, userId }: { roomId: string, userId: string }) => {
+      await setUserMentionAsRead({ userId, roomId });
+
+      const unreadMentions = await getUserUnreadMentions({ userId: userId });
+      socket.emit('mention_notification', unreadMentions);
+    });
+
 
     // 断开连接
     socket.on('disconnect', async () => {

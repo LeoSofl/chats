@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GET_ROOM_MESSAGES } from '@/lib/graphql';
 import { client } from '@/lib/apollo';
-import { Message } from '@/lib/socket';
 import { RoomMessagesAtom } from '@/lib/store/chat';
 import { useAtom } from 'jotai';
-
+import { Message } from '@/lib/types';
 interface UseRoomMessages {
     roomId: string;
     userName: string;

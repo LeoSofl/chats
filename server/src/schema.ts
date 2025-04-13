@@ -77,8 +77,9 @@ export const typeDefs = gql`
   type Mutation {
     createRoom(name: String!): Room!
     deleteRoom(name: String!): Int!
-    addRoomParticipant(roomId: String!, participantName: String!, receiveStatus: String!): Void
-    deleteRoomParticipant(roomId: String!, participantName: String!): Int!
+    addRoomParticipant(roomId: String!, userId: String!, receiveStatus: String!): Void
+    updateRoomParticipant(roomId: String!, userId: String!, receiveStatus: String!): Void
+    deleteRoomParticipant(roomId: String!, userId: String!): Int!
 
     createUnread(userId: String!, roomId: String!): Unread!
     deleteUnread(userId: String!, roomId: String!): Int!

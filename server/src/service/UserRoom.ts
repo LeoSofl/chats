@@ -4,16 +4,18 @@ export interface AddOrUpdateUserRoomArgs {
     userId: string;
     roomId: string;
     receiveStatus: 'all' | 'notice' | 'none';
+    socketId?: string;
 }
 
 export const addOrUpdateUserRoom = async (args: AddOrUpdateUserRoomArgs) => {
-    const { userId, roomId, receiveStatus } = args;
+    const { userId, roomId, receiveStatus, socketId } = args;
     const userRoom = await UserRoom.findOne({ userId, roomId });
     if (userRoom) {
         userRoom.receiveStatus = receiveStatus;
+        userRoom.socketId = socketId ?? userRoom.socketId;
         await userRoom.save();
     } else {
-        await UserRoom.create({ userId, roomId, receiveStatus });
+        await UserRoom.create({ userId, roomId, receiveStatus, socketId: socketId ?? '' });
     }
 }
 
@@ -29,8 +31,13 @@ export const getUserRoom = async (args: GetUserRoomArgs) => {
 }
 
 export const getRoomUsers = async (roomId: string) => {
-    const users = await UserRoom.find({ roomId });
-    return users;
+    try {
+        const users = await UserRoom.find({ roomId });
+        return users;
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 }
 
 export interface DeleteUserRoomArgs {

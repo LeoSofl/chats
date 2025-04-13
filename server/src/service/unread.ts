@@ -1,4 +1,5 @@
 import { IUnreadCounter, UnreadCounter } from "../models/Unread";
+import { UserRoom } from "../models/UserRoom";
 
 export interface getUnreadCountsForUserArgs {
     userId: string;
@@ -41,8 +42,20 @@ export interface incrementUnreadCountArgs {
 
 export const incrementUnreadCount = async ({ roomId, messageId, excludeUserId }: incrementUnreadCountArgs) => {
     try {
-        const unreadCount = await UnreadCounter.updateMany(
-            { roomId, userId: { $ne: excludeUserId } },
+        // 1. 找出需要更新的用户IDs
+        const roomUsers = await UserRoom.find({ roomId });
+        const userIds = roomUsers
+            .filter(user => user.userId !== excludeUserId)
+            .map(user => user.userId);
+
+        if (userIds.length === 0) return { success: true, updatedCount: 0 };
+
+        // 2. 批量更新所有这些用户的未读计数
+        const result = await UnreadCounter.updateMany(
+            {
+                userId: { $in: userIds },
+                roomId
+            },
             {
                 $inc: { count: 1 },
                 $setOnInsert: { firstUnreadMessageId: messageId }
@@ -51,12 +64,12 @@ export const incrementUnreadCount = async ({ roomId, messageId, excludeUserId }:
         );
 
         return {
-            upsertedId: unreadCount.upsertedId,
-            modifiedCount: unreadCount.modifiedCount,
+            success: true,
+            updatedCount: result.modifiedCount + result.upsertedCount
         };
     } catch (error) {
-        console.error(error);
-        return null;
+        console.error('Error incrementing unread count:', error);
+        return { success: false, error };
     }
 }
 
@@ -74,4 +87,3 @@ export const deleteUnreadCount = async ({ userId, roomId }: deleteUnreadCountArg
         return null;
     }
 }
-

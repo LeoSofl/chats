@@ -79,6 +79,8 @@ export default function CommunityPage() {
   // init socket
   useEffect(() => {
     getSocket(userName, currentRoomId)
+    resetUserUnread(currentRoomId, userName)
+    setUserMentionAsRead(currentRoomId, userName)
 
     return () => {
       closeSocket()

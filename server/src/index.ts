@@ -5,9 +5,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { ApolloServer } from 'apollo-server-express';
 import { connectDB } from './db';
-import { setupChatHandlers } from './socket/chat';
-import { typeDefs } from './schema';
-import { resolvers } from './resolvers';
+import { setupChatHandlers } from './handler/socket/chat';
+import { typeDefs } from './handler/apis/schema';
+import { resolvers } from './handler/apis/resolvers';
 
 dotenv.config();
 

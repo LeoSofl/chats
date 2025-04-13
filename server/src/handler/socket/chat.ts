@@ -1,11 +1,11 @@
 import { Server, Socket } from 'socket.io';
-import { IMessage } from '../models/Message';
+import { IMessage } from '../../models/Message';
 import mongoose from 'mongoose';
-import { addOrUpdateRoom } from '../service/room';
-import { incrementUnreadCount, getUnreadCountsForUser, addOrUpdateUnreadCount, deleteUnreadCount } from '../service/unread';
-import { addOrUpdateUserRoom, deleteUserRoom, deleteUserRooms, getRoomUsers, getUserRoom } from '../service/UserRoom';
-import { addMessage, getMessage } from '../service/messages';
-import { addOrUpdateMention, getUserUnreadMentions, setUserMentionAsRead } from '../service/metions';
+import { addOrUpdateRoom } from '../../service/room';
+import { incrementUnreadCount, getUnreadCountsForUser, addOrUpdateUnreadCount, deleteUnreadCount } from '../../service/unread';
+import { addOrUpdateUserRoom, deleteUserRoom, deleteUserRooms, getRoomUsers, getUserRoom } from '../../service/UserRoom';
+import { addMessage, getMessage } from '../../service/messages';
+import { addOrUpdateMention, getUserUnreadMentions, setUserMentionAsRead } from '../../service/metions';
 
 
 export const setupChatHandlers = (io: Server): void => {

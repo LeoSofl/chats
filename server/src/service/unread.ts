@@ -42,30 +42,45 @@ export interface incrementUnreadCountArgs {
 
 export const incrementUnreadCount = async ({ roomId, messageId, excludeUserId }: incrementUnreadCountArgs) => {
     try {
-        // 1. 找出需要更新的用户IDs
+        // 1. 找出需要更新的用户
         const roomUsers = await UserRoom.find({ roomId });
-        const userIds = roomUsers
-            .filter(user => user.userId !== excludeUserId)
-            .map(user => user.userId);
+        const validUsers = roomUsers
+            .filter(user => user.userId && typeof user.userId === 'string' && user.userId !== excludeUserId && user.receiveStatus === "notice");
 
-        if (userIds.length === 0) return { success: true, updatedCount: 0 };
+        if (validUsers.length === 0) return { success: true, updatedCount: 0 };
 
-        // 2. 批量更新所有这些用户的未读计数
-        const result = await UnreadCounter.updateMany(
-            {
-                userId: { $in: userIds },
-                roomId
-            },
-            {
-                $inc: { count: 1 },
-                $setOnInsert: { firstUnreadMessageId: messageId }
-            },
-            { upsert: true }
-        );
+        // 2. 逐个处理每个用户的未读计数
+        let updatedCount = 0;
+        const errors = [];
+
+        for (const user of validUsers) {
+            try {
+                // 使用updateOne而不是updateMany
+                const result = await UnreadCounter.updateOne(
+                    {
+                        userId: user.userId,
+                        roomId
+                    },
+                    {
+                        $inc: { count: 1 },
+                        $setOnInsert: { firstUnreadMessageId: messageId }
+                    },
+                    { upsert: true }
+                );
+
+                if (result.modifiedCount > 0 || result.upsertedCount > 0) {
+                    updatedCount++;
+                }
+            } catch (err) {
+                console.warn(`Failed to update unread count for user ${user.userId}:`, err);
+                errors.push({ userId: user.userId, error: err });
+            }
+        }
 
         return {
             success: true,
-            updatedCount: result.modifiedCount + result.upsertedCount
+            updatedCount,
+            errors: errors.length > 0 ? errors : undefined
         };
     } catch (error) {
         console.error('Error incrementing unread count:', error);

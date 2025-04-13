@@ -1,9 +1,9 @@
 import { IResolvers } from '@graphql-tools/utils';
-import { addMessage, deleteMessage, getRoomMessages } from './service/messages';
-import { addOrUpdateRoom, deleteRoom, getRoom } from './service/room';
-import { addOrUpdateUnreadCount, deleteUnreadCount, getUnreadCountsForUser } from './service/unread';
-import { addOrUpdateMention, deleteMention, getUserUnreadMentions, setUserMentionAsRead } from './service/metions';
-import { addOrUpdateUserRoom, deleteUserRoom, getRoomUsers } from './service/UserRoom';
+import { addMessage, deleteMessage, getRoomMessages } from '../../service/messages';
+import { addOrUpdateRoom, deleteRoom, getRoom } from '../../service/room';
+import { addOrUpdateUnreadCount, deleteUnreadCount, getUnreadCountsForUser } from '../../service/unread';
+import { addOrUpdateMention, deleteMention, getUserUnreadMentions, setUserMentionAsRead } from '../../service/metions';
+import { addOrUpdateUserRoom, deleteUserRoom, getRoomUsers } from '../../service/UserRoom';
 
 // 定义 Resolver 上下文
 interface Context {

@@ -25,29 +25,55 @@ export const typeDefs = gql`
   }
 
   type Room {
-    id: ID!
+    _id: ID!
     name: String!
-    participants: [User!]!
+    participants: [String!]!
     lastActivity: String
   }
 
-  type UnreadCount {
+  type Mention {
+    _id: ID!
+    roomId: String!
+    messageId: ID!  
+    mentionedUser: String;             
+    mentioningUser: String;             
+    timestamp: Date;                   
+    content: String;                    
+    isRead: boolean;                    
+  }
+
+  type Unread {
+    _id: ID!
+    userId: String!
+    roomId: String!
     count: Int!
+    lastReadTimestamp: String!
+    firstUnreadMessageId: ID
   }
 
   type Query {
-    rooms: [Room!]!
-    room(name: String!): Room
+    room(name: String!): Room!
     roomMessages(roomId: String!, limit: Int, offset: Int): [Message!]!
-    unreadCount(roomId: String!, userName: String!): UnreadCount!
-    roomParticipants(roomId: String!): [User!]!
+    roomParticipants(roomId: String!): [String!]!
+
+    userUnreads(userId: String!): [Unread!]!
+    userUnreadMentions(userId: String!): [Mention!]!
   }
 
   type Mutation {
     createRoom(name: String!): Room!
-    joinRoom(roomId: String!, userName: String!): Room!
-    sendMessage(roomId: String!, content: String!, senderName: String!, quotedMessageId: ID, mentions: [String!]): Message!
-    markAsRead(messageId: ID!, userName: String!): Message
-    leaveRoom(roomId: String!, userName: String!): Room!
+    deleteRoom(name: String!): Int!
+    addRoomParticipant(roomId: String!, participantName: String!): Room!
+    deleteRoomParticipant(roomId: String!, participantName: String!): Room!
+
+    createUnread(userId: String!, roomId: String!): UnreadCount!
+    deleteUnread(userId: String!, roomId: String!): Int!
+
+    createMention(roomId: String!, messageId: ID!, mentionedUser: String!, mentioningUser: String!, content: String!): Mention!
+    deleteMention(roomId: String!, mentionedUser: String!): Int!
+    setUserMentionAsRead(userId: String!, roomId: String!): Int!
+
+    createMessage(roomId: String!, content: String!, senderName: String!, quotedMessageId: ID, mentions: [String!]): Message!
+    deleteMessage(messageId: ID!): Int!
   }
 `; 

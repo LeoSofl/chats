@@ -2,19 +2,13 @@ import mongoose from 'mongoose';
 
 export interface IRoom {
   name: string;
-  participants: Array<{
-    name: string;
-    avatar?: string;
-  }>;
+  participants: string[];
   lastActivity: Date;
 }
 
 const RoomSchema = new mongoose.Schema<IRoom>({
   name: { type: String, required: true },
-  participants: [{
-    name: String,
-    avatar: String
-  }],
+  participants: [String],
   lastActivity: { type: Date, default: Date.now }
 });
 

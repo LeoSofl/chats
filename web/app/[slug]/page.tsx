@@ -2,18 +2,19 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react"
 import { Quote, User } from "lucide-react"
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { MessageInput } from "@/components/message-input"
 import { useParams } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list"
 import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat/chat-bubble"
-import { getSocket, sendMessage, closeSocket, changeRoomMode, resetUnreadCount, Message } from "@/lib/socket"
-import { currentRoomIdAtom, deleteMentionedRoomAtom, RoomMessagesAtom } from "@/lib/store/chat"
+import { getSocket, sendMessage, closeSocket, changeRoomMode, resetUnreadCount } from "@/lib/socket"
+import { CurrentRoomIdAtom, RoomMessagesAtom } from "@/lib/store/chat"
 import { formatMessageTime } from "@/utils"
 import { ROOM_INFO, RoomList } from "../../components/room-list"
 import { useRoomParticipants } from "@/hooks/useRoomParticipants"
 import { useRoomMessages } from "@/hooks/useRoomMessages"
+import { Message } from "@/lib/types"
 
 export default function CommunityPage() {
   const { slug } = useParams()
@@ -22,11 +23,10 @@ export default function CommunityPage() {
   const inputRef = useRef<HTMLDivElement>(null)
   const scrollAreaWrapperRef = useRef<HTMLDivElement>(null)
 
-  const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom)
+  const [currentRoomId, setCurrentRoomId] = useAtom(CurrentRoomIdAtom)
   const roomMessages = useAtomValue(RoomMessagesAtom)
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
   const [scrollAreaWrapperHeight, setScrollAreaWrapperHeight] = useState(0)
-  const deleteMentionedRoom = useSetAtom(deleteMentionedRoomAtom)
   const isFetchMoreRef = useRef(false)
 
   const {
@@ -56,7 +56,6 @@ export default function CommunityPage() {
     changeRoomMode(roomId, { fullHistory: true });
     setCurrentRoomId(roomId)
     resetUnreadCount(roomId);
-    deleteMentionedRoom(roomId)
     setQuotedMessage(null)
   }
 

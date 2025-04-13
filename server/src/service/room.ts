@@ -1,34 +1,57 @@
-export interface JoinRoomReq {
-    roomId: string;
-    userName: string;
-    options?: {
-        fullHistory?: boolean;
-        notificationsOnly?: boolean;
-    };
+import { Room } from "../models/Room";
+
+export interface getRoomArgs {
+    name: string;
+}
+export const getRoom = async ({ name }: getRoomArgs) => {
+    const room = await Room.findOne({ name });
+    return room;
 }
 
+export interface addRoomArgs {
+    name: string;
+}
+export const addRoom = async ({ name }: addRoomArgs) => {
+    const room = await Room.create({ name, participants: [] });
+    return room;
+}
 
-export const joinRoom = async (req: JoinRoomReq) => {
-    const { roomId, options = {} } = data;
-    socket.join(roomId);
-    console.log(`User ${userName} joined room ${roomId} with options:`, options);
+export interface deleteRoomArgs {
+    name: string;
+}
+export const deleteRoom = async ({ name }: deleteRoomArgs) => {
+    const result = await Room.deleteOne({ name });
+    return result.deletedCount;
+}
+export interface addRoomParticipantArgs {
+    roomId: string;
+    participantName: string;
+}
 
-    // 保存用户房间模式状态
-    const userState = userConnections.get(socket.id);
-    if (userState) {
-        userState.rooms.set(roomId, {
-            fullHistory: options.fullHistory || false,
-            notificationsOnly: options.notificationsOnly || false
-        });
-    }
+export const addRoomParticipant = async ({ roomId, participantName }: addRoomParticipantArgs) => {
+    const room = await Room.findOne({ name: roomId });
+    if (!room) return;
+    room.participants.push(participantName);
+    await room.save();
+}
 
-    // 更新房间参与者
-    await Room.updateOne(
-        { name: roomId },
-        {
-            $addToSet: { participants: { name: userName } },
-            $set: { lastActivity: new Date() }
-        },
-        { upsert: true }
-    )
+export interface getRoomParticipantsArgs {
+    roomId: string;
+}
+export const getRoomParticipants = async ({ roomId }: getRoomParticipantsArgs) => {
+    const room = await Room.findOne({ name: roomId });
+    if (!room) return [];
+    return room?.participants ?? [];
+}
+
+export interface deleteRoomParticipantArgs {
+    roomId: string;
+    participantName: string;
+}
+
+export const deleteRoomParticipant = async ({ roomId, participantName }: deleteRoomParticipantArgs) => {
+    const room = await Room.findOne({ name: roomId });
+    if (!room) return;
+    room.participants = room.participants.filter(p => p !== participantName);
+    return await room.save();
 }

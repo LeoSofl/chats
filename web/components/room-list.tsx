@@ -1,4 +1,4 @@
-import { mentionedRoomsAtom, unreadCountsAtom } from "@/lib/store/chat";
+import { mentionedRoomsAtom, UnreadCountsAtom } from "@/lib/store/chat";
 import { useAtomValue } from "jotai";
 import { AtSign } from "lucide-react";
 
@@ -17,7 +17,7 @@ export interface RoomListProps {
 }
 
 export const RoomList = ({ currentRoomId, handleRoomChange }: RoomListProps) => {
-    const unreadCounts = useAtomValue(unreadCountsAtom);
+    const unreadCounts = useAtomValue(UnreadCountsAtom);
     const mentionedRooms = useAtomValue(mentionedRoomsAtom);
 
     return (

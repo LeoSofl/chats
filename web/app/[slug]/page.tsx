@@ -39,7 +39,7 @@ export default function CommunityPage() {
 
   const {
     isLoading: isRoomMessagesLoading,
-    fetchNextPage
+    loadMoreMessages,
   } = useRoomMessages({
     roomId: currentRoomId,
     userName,
@@ -136,7 +136,7 @@ export default function CommunityPage() {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollContainer) {
         if (scrollContainer.scrollTop === 0) {
-          fetchNextPage()
+          loadMoreMessages()
           isFetchMoreRef.current = true
         }
       }
